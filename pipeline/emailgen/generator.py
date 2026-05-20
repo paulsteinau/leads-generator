@@ -65,8 +65,6 @@ def _parse(raw: str) -> tuple[str, str]:
 
 
 def generate_emails(lead: dict, conn, dry_run: bool = False) -> dict | None:
-    if not lead.get("email"):
-        return None
     if _cooldown(conn, lead.get("website")):
         return None
 

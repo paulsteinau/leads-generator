@@ -15,7 +15,7 @@ from pipeline.analyzer.seo import analyze_seo
 from pipeline.analyzer.social import analyze_social
 from pipeline.analyzer.website import analyze_pagespeed_batch
 from pipeline.analyzer.ux import analyze_ux_batch
-from pipeline.extractor.contact import extract_contacts
+from pipeline.extractor.contact import extract_contacts_batch
 from pipeline.scorer.engine import score_lead
 from pipeline.emailgen.generator import generate_emails
 from tqdm import tqdm
@@ -130,15 +130,17 @@ def run(dry_run: bool = False):
     to_extract = [dict(r) for r in conn.execute(
         "SELECT * FROM leads WHERE stage='analyzed'"
     ).fetchall()]
-    for lead in tqdm(to_extract, desc="Extracting"):
-        contacts = (extract_contacts(lead["website"]) if lead.get("website")
-                    else {"email": None, "phone": None})
-        phone = contacts.get("phone") or lead.get("phone")
-        conn.execute(
-            "UPDATE leads SET email=?,phone=?,stage='extracted',updated_at=datetime('now') WHERE id=?",
-            (contacts.get("email"), phone, lead["id"]),
-        )
-    conn.commit()
+    if to_extract:
+        log.info(f"Stage 3: {len(to_extract)} leads")
+        contacts_map = asyncio.run(extract_contacts_batch(to_extract))
+        for lead in tqdm(to_extract, desc="Extracting"):
+            contacts = contacts_map.get(lead["id"], {"email": None, "phone": None})
+            phone = contacts.get("phone") or lead.get("phone")
+            conn.execute(
+                "UPDATE leads SET email=?,phone=?,stage='extracted',updated_at=datetime('now') WHERE id=?",
+                (contacts.get("email"), phone, lead["id"]),
+            )
+        conn.commit()
 
     # Stage 4: Score
     to_score = [dict(r) for r in conn.execute(

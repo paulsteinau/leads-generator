@@ -68,3 +68,7 @@ class ApproveEmailRequest(BaseModel):
 
 class UpdateStatusRequest(BaseModel):
     status: str
+
+
+class UpdateEmailRequest(BaseModel):
+    email: Optional[str] = None

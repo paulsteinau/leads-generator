@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from api.db import get_conn, init_db
 from api.models import (
     LeadSummary, LeadDetail, StatsResponse,
-    ApproveEmailRequest, UpdateStatusRequest,
+    ApproveEmailRequest, UpdateStatusRequest, UpdateEmailRequest,
 )
 
 app = FastAPI(title="Berlin Lead-Gen API")
@@ -191,12 +191,24 @@ def get_lead(lead_id: int):
 def approve_email(lead_id: int, body: ApproveEmailRequest):
     if body.variant not in ("a", "b"):
         raise HTTPException(400, "variant must be 'a' or 'b'")
+    from urllib.parse import urlparse
     conn = get_conn()
+    row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
     conn.execute(
         "UPDATE leads SET email_approved=1, email_variant=?, status='contacted',"
         " updated_at=datetime('now') WHERE id=?",
         (body.variant, lead_id),
     )
+    if row["website"]:
+        domain = urlparse(row["website"]).netloc
+        body_text = row["email_body_a"] if body.variant == "a" else row["email_body_b"]
+        conn.execute(
+            "INSERT INTO email_log (lead_id, domain, sent_at, subject, body)"
+            " VALUES (?,?,datetime('now'),?,?)",
+            (lead_id, domain, row["email_subject"] or "", body_text or ""),
+        )
     conn.commit()
     return {"ok": True}
 
@@ -210,6 +222,18 @@ def update_status(lead_id: int, body: UpdateStatusRequest):
     conn.execute(
         "UPDATE leads SET status=?, updated_at=datetime('now') WHERE id=?",
         (body.status, lead_id),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
+@app.post("/leads/{lead_id}/email")
+def update_email(lead_id: int, body: UpdateEmailRequest):
+    email = (body.email or "").strip() or None
+    conn = get_conn()
+    conn.execute(
+        "UPDATE leads SET email=?, updated_at=datetime('now') WHERE id=?",
+        (email, lead_id),
     )
     conn.commit()
     return {"ok": True}

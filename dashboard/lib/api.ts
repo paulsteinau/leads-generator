@@ -1,4 +1,4 @@
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
 
 export interface LeadSummary {
   id: number;
@@ -83,4 +83,11 @@ export const updateStatus = (id: number, status: string) =>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
+  });
+
+export const updateEmail = (id: number, email: string) =>
+  fetch(`${API}/leads/${id}/email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
   });

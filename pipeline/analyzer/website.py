@@ -6,20 +6,25 @@ PAGESPEED_URL = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 
 
 async def _fetch(client: httpx.AsyncClient, url: str, strategy: str) -> int | None:
-    try:
-        r = await client.get(
-            PAGESPEED_URL, timeout=30,
-            params={"url": url, "strategy": strategy,
-                    "key": os.environ.get("GOOGLE_API_KEY", "")},
-        )
-        score = (r.json()
-                 .get("lighthouseResult", {})
-                 .get("categories", {})
-                 .get("performance", {})
-                 .get("score"))
-        return int(score * 100) if score is not None else None
-    except Exception:
-        return None
+    for attempt in range(3):
+        try:
+            r = await client.get(
+                PAGESPEED_URL, timeout=30,
+                params={"url": url, "strategy": strategy,
+                        "key": os.environ.get("GOOGLE_API_KEY", "")},
+            )
+            if r.status_code == 429:
+                await asyncio.sleep(30 * (attempt + 1))
+                continue
+            score = (r.json()
+                     .get("lighthouseResult", {})
+                     .get("categories", {})
+                     .get("performance", {})
+                     .get("score"))
+            return int(score * 100) if score is not None else None
+        except Exception:
+            return None
+    return None
 
 
 async def analyze_pagespeed_batch(urls: list[str], max_concurrent: int = 2) -> dict[str, dict]:

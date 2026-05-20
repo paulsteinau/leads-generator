@@ -44,6 +44,10 @@ CREATE TABLE IF NOT EXISTS cost_log (
     cost_usd REAL,
     logged_at TEXT DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
+CREATE INDEX IF NOT EXISTS idx_leads_tier ON leads(lead_tier);
+CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
+CREATE INDEX IF NOT EXISTS idx_email_log_domain ON email_log(domain, sent_at);
 """
 
 

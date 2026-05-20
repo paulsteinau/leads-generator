@@ -1,3 +1,4 @@
+import asyncio
 import re
 import httpx
 
@@ -34,25 +35,53 @@ def _extract_phone_from_text(text: str) -> str | None:
     return (m if isinstance(m, str) else m[0]).strip()
 
 
-def extract_contacts(website: str, timeout: int = 10) -> dict:
+async def _extract_one(website: str, timeout: int = 10) -> dict:
     result: dict = {"email": None, "phone": None}
-    for path in ["/impressum", "/kontakt", "/contact", "/"]:
-        try:
-            resp = httpx.get(
-                website.rstrip("/") + path,
-                timeout=timeout,
-                follow_redirects=True,
-                headers={"User-Agent": "Mozilla/5.0"},
-            )
-            if resp.status_code != 200:
-                continue
-            text = resp.text
-            if not result["email"]:
-                result["email"] = _extract_email_from_text(text)
-            if not result["phone"]:
-                result["phone"] = _extract_phone_from_text(text)
-            if result["email"] and result["phone"]:
-                break
-        except Exception:
-            continue
+    try:
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0"},
+        ) as client:
+            for path in ["/impressum", "/kontakt", "/contact", "/"]:
+                try:
+                    resp = await client.get(website.rstrip("/") + path)
+                    if resp.status_code != 200:
+                        continue
+                    text = resp.text
+                    if not result["email"]:
+                        result["email"] = _extract_email_from_text(text)
+                    if not result["phone"]:
+                        result["phone"] = _extract_phone_from_text(text)
+                    if result["email"] and result["phone"]:
+                        break
+                except Exception:
+                    continue
+    except Exception:
+        pass
     return result
+
+
+async def extract_contacts_batch(leads: list[dict], max_concurrent: int = 10) -> dict[int, dict]:
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def one(lead: dict) -> tuple[int, dict]:
+        async with sem:
+            if lead.get("website"):
+                contacts = await _extract_one(lead["website"])
+            else:
+                contacts = {"email": None, "phone": None}
+        return lead["id"], contacts
+
+    pairs = await asyncio.gather(*[one(l) for l in leads], return_exceptions=True)
+    out: dict[int, dict] = {}
+    for lead, res in zip(leads, pairs):
+        if isinstance(res, tuple):
+            out[res[0]] = res[1]
+        else:
+            out[lead["id"]] = {"email": None, "phone": None}
+    return out
+
+
+def extract_contacts(website: str, timeout: int = 10) -> dict:
+    return asyncio.run(_extract_one(website, timeout))
