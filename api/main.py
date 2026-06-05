@@ -13,6 +13,8 @@ from api.db import get_conn, init_db
 from api.models import (
     LeadSummary, LeadDetail, StatsResponse,
     ApproveEmailRequest, UpdateStatusRequest, UpdateEmailRequest,
+    PendingReviewLead, RegenerateRequest, EditDemoRequest,
+    ResendWebhookPayload, UnsubscribeRequest,
 )
 
 app = FastAPI(title="Berlin Lead-Gen API")
@@ -171,6 +173,25 @@ def export_leads(tier: str | None = None):
     )
 
 
+@app.get("/leads/pending-review")
+def list_pending_review():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, name, demo_url, created_at FROM leads WHERE stage='ready_for_review'"
+        " ORDER BY created_at DESC"
+    ).fetchall()
+    leads = [
+        PendingReviewLead(
+            id=r["id"],
+            name=r["name"],
+            demo_url=r["demo_url"],
+            created_at=r["created_at"] or "",
+        )
+        for r in rows
+    ]
+    return {"count": len(leads), "leads": leads}
+
+
 @app.get("/leads/{lead_id}", response_model=LeadDetail)
 def get_lead(lead_id: int):
     conn = get_conn()
@@ -234,6 +255,189 @@ def update_email(lead_id: int, body: UpdateEmailRequest):
     conn.execute(
         "UPDATE leads SET email=?, updated_at=datetime('now') WHERE id=?",
         (email, lead_id),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
+# ── Review / Approval ─────────────────────────────────────────────────────────
+
+@app.post("/leads/{lead_id}/approve")
+def approve_lead(lead_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    conn.execute(
+        "UPDATE leads SET stage='approved', updated_at=datetime('now') WHERE id=?",
+        (lead_id,),
+    )
+    conn.execute(
+        "INSERT INTO admin_actions (lead_id, action, payload) VALUES (?,?,?)",
+        (lead_id, "approved", None),
+    )
+    conn.commit()
+
+    lead = dict(conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone())
+    from pipeline.sender.send import send_email  # noqa: PLC0415
+    try:
+        sent = send_email(lead, conn)
+    except Exception:
+        sent = False
+    if not sent:
+        return {"ok": False, "error": "send failed"}
+    return {"ok": True, "sent": sent}
+
+
+@app.post("/leads/{lead_id}/reject")
+def reject_lead(lead_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    conn.execute(
+        "UPDATE leads SET stage='rejected', updated_at=datetime('now') WHERE id=?",
+        (lead_id,),
+    )
+    conn.execute(
+        "INSERT INTO admin_actions (lead_id, action, payload) VALUES (?,?,?)",
+        (lead_id, "rejected", None),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
+@app.post("/leads/{lead_id}/regenerate")
+def regenerate_lead(lead_id: int, body: RegenerateRequest):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+
+    iteration_count = conn.execute(
+        "SELECT COUNT(*) FROM admin_actions WHERE lead_id=? AND action='regenerated'",
+        (lead_id,),
+    ).fetchone()[0]
+
+    if iteration_count >= 3:
+        conn.execute(
+            "UPDATE leads SET stage='needs_manual_completion', updated_at=datetime('now')"
+            " WHERE id=?",
+            (lead_id,),
+        )
+        conn.commit()
+        return {"ok": False, "error": "max iterations reached"}
+
+    lead = dict(row)
+    from pipeline.generator.demo import generate_demo  # noqa: PLC0415
+    slug = generate_demo(lead, conn)
+
+    conn.execute(
+        "INSERT INTO admin_actions (lead_id, action, payload) VALUES (?,?,?)",
+        (lead_id, "regenerated", body.instructions),
+    )
+    conn.commit()
+    return {"ok": True, "slug": slug}
+
+
+@app.post("/leads/{lead_id}/edit-demo")
+def edit_demo(lead_id: int, body: EditDemoRequest):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+
+    iteration_count = conn.execute(
+        "SELECT COUNT(*) FROM admin_actions WHERE lead_id=? AND action IN ('regenerated','edited')",
+        (lead_id,),
+    ).fetchone()[0]
+
+    if iteration_count >= 3:
+        return {"ok": False, "error": "max iterations reached"}
+
+    lead = dict(row)
+    slug = lead.get("demo_url", "").rstrip("/").rsplit("/", 1)[-1] if lead.get("demo_url") else ""
+
+    ROOT_PATH = Path(__file__).parent.parent
+    content_path = ROOT_PATH / "data" / "demos" / slug / "content.json"
+    if not content_path.exists():
+        raise HTTPException(404, "Demo content not found")
+
+    existing_content = json.loads(content_path.read_text(encoding="utf-8"))
+
+    from pipeline.utils.claude_p import claude_p  # noqa: PLC0415
+    prompt = (
+        f"Du bearbeitest den Inhalt einer Demo-Website für '{lead.get('name', '')}'.\n"
+        f"Bestehender Inhalt (JSON):\n{json.dumps(existing_content, ensure_ascii=False, indent=2)}\n\n"
+        f"Anweisung des Nutzers: {body.description}\n\n"
+        "Gib NUR das vollständige, überarbeitete JSON-Objekt zurück. Kein Markdown, keine Erklärungen."
+    )
+    result = claude_p(prompt, model="claude-haiku-4-5", lead_id=lead_id, stage="edit_demo")
+
+    try:
+        new_content = json.loads(result)
+    except json.JSONDecodeError:
+        raise HTTPException(500, "LLM returned invalid JSON")
+
+    content_path.write_text(json.dumps(new_content, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    conn.execute(
+        "INSERT INTO admin_actions (lead_id, action, payload) VALUES (?,?,?)",
+        (lead_id, "edited", body.description),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
+# ── Webhooks ──────────────────────────────────────────────────────────────────
+
+@app.post("/webhook/resend")
+def webhook_resend(body: ResendWebhookPayload):
+    conn = get_conn()
+    event_type = body.type
+    data = body.data or {}
+
+    if event_type == "email.bounced":
+        recipient = data.get("to") or data.get("email") or ""
+        domain = recipient.split("@")[-1] if "@" in recipient else None
+        message_id = data.get("email_id") or data.get("id")
+        conn.execute(
+            "INSERT OR IGNORE INTO suppressions (email, domain, reason) VALUES (?,?,?)",
+            (recipient or None, domain, "bounce"),
+        )
+        if message_id:
+            conn.execute(
+                "UPDATE leads SET stage='bounced', updated_at=datetime('now')"
+                " WHERE email_message_id=?",
+                (message_id,),
+            )
+    elif event_type == "email.delivered":
+        message_id = data.get("email_id") or data.get("id")
+        if message_id:
+            conn.execute(
+                "UPDATE leads SET status='contacted', updated_at=datetime('now')"
+                " WHERE email_message_id=?",
+                (message_id,),
+            )
+    elif event_type == "email.opened":
+        message_id = data.get("email_id") or data.get("id")
+        if message_id:
+            conn.execute(
+                "UPDATE leads SET status='replied', notes='Email geöffnet',"
+                " updated_at=datetime('now') WHERE email_message_id=?",
+                (message_id,),
+            )
+
+    conn.commit()
+    return {"ok": True}
+
+
+@app.post("/unsubscribe")
+def unsubscribe(body: UnsubscribeRequest):
+    conn = get_conn()
+    conn.execute(
+        "INSERT OR IGNORE INTO suppressions (email, domain, reason) VALUES (?,?,?)",
+        (body.email, body.domain, "opt_out"),
     )
     conn.commit()
     return {"ok": True}

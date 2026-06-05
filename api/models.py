@@ -72,3 +72,28 @@ class UpdateStatusRequest(BaseModel):
 
 class UpdateEmailRequest(BaseModel):
     email: Optional[str] = None
+
+
+class PendingReviewLead(BaseModel):
+    id: int
+    name: Optional[str] = None
+    demo_url: Optional[str] = None
+    created_at: str
+
+
+class RegenerateRequest(BaseModel):
+    instructions: Optional[str] = None
+
+
+class EditDemoRequest(BaseModel):
+    description: str
+
+
+class ResendWebhookPayload(BaseModel):
+    type: str
+    data: Optional[dict] = None
+
+
+class UnsubscribeRequest(BaseModel):
+    email: str
+    domain: Optional[str] = None
