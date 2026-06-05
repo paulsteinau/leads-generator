@@ -3,6 +3,7 @@ import EmailPanel from "./EmailPanel";
 import ReviewPanel from "./ReviewPanel";
 import ScreenshotTabs from "./ScreenshotTabs";
 import Link from "next/link";
+import GenerateDemoButton from "./GenerateDemoButton";
 
 function Bar({ label, v }: { label: string; v: number | null }) {
   if (v === null)
@@ -205,6 +206,11 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
 
         {/* Col 3: Review + Email + CRM */}
         <div className="space-y-4">
+          <GenerateDemoButton
+            leadId={lead.id}
+            initialStage={lead.stage ?? ""}
+            initialDemoUrl={lead.demo_url ?? null}
+          />
           {lead.stage === "ready_for_review" && <ReviewPanel lead={lead} />}
           <EmailPanel lead={lead} />
         </div>
