@@ -1,22 +1,40 @@
 import { getStats, getLeads } from "@/lib/api";
-import PipelinePanel from "../components/PipelinePanel";
-import CostTracker from "../components/CostTracker";
 import Link from "next/link";
+import DashboardShell from "./components/DashboardShell";
 
-const TIER: Record<string, string> = {
-  hot: "bg-red-100 text-red-700",
-  warm: "bg-orange-100 text-orange-700",
-  low: "bg-gray-100 text-gray-500",
-  uncontactable: "bg-purple-100 text-purple-500",
+const TIER_STYLES: Record<string, { badge: string; initials: string }> = {
+  hot:  { badge: "bg-red-50 text-red-700 ring-1 ring-red-200",    initials: "bg-red-500 text-white" },
+  warm: { badge: "bg-orange-50 text-orange-700 ring-1 ring-orange-200", initials: "bg-orange-500 text-white" },
+  low:  { badge: "bg-gray-100 text-gray-500 ring-1 ring-gray-200", initials: "bg-gray-400 text-white" },
 };
 
-const STATUS: Record<string, string> = {
-  new: "text-gray-400",
-  contacted: "text-blue-500",
-  replied: "text-green-600 font-semibold",
-  closed: "text-gray-400 line-through",
-  ignored: "text-gray-300",
+const STATUS_STYLES: Record<string, string> = {
+  new:           "text-gray-400",
+  contacted:     "text-indigo-600 font-medium",
+  replied:       "text-green-600 font-semibold",
+  closed:        "text-gray-300 line-through",
+  ignored:       "text-gray-300",
+  uncontactable: "text-gray-300",
 };
+
+const STAGE_LABEL: Record<string, string> = {
+  scraped:          "Scraped",
+  analyzed:         "Analysiert",
+  scored:           "Bewertet",
+  email_generated:  "Email bereit",
+  ready_for_review: "Review",
+  approved:         "Freigegeben",
+  sent:             "Versendet",
+  generating_demo:  "Demo läuft...",
+  demo_failed:      "Demo fehlgeschlagen",
+};
+
+function getInitials(name: string | null): string {
+  if (!name) return "?";
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 
 export default async function Home({
   searchParams,
@@ -25,134 +43,222 @@ export default async function Home({
 }) {
   const [stats, leads] = await Promise.all([getStats(), getLeads(searchParams)]);
   const activeTier = searchParams.tier;
+  const activeStatus = searchParams.status;
+
+  const totalLeads = leads.length;
+  const withEmail = leads.filter((l) => l.has_email).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-4 py-3 flex items-center gap-2">
-        <span className="font-bold text-gray-900">Berlin Lead-Gen</span>
-        <span className="text-gray-300 mx-1">|</span>
-        <span className="text-sm text-gray-500">internes Tool</span>
-        <div className="ml-auto">
-          <CostTracker />
+    <DashboardShell>
+      {/* Page header */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[18px] font-bold text-gray-900 tracking-tight">Leads</h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {totalLeads} Leads · {withEmail} mit E-Mail
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="http://localhost:8000/leads/export"
+              target="_blank"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium shadow-sm"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v8M5 7l3 3 3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              CSV Export
+            </a>
+          </div>
         </div>
       </div>
 
-      {/* Pipeline Control */}
-      <PipelinePanel />
-
-      {/* Stats Bar */}
-      <div className="flex gap-6 px-4 py-3 bg-white border-b text-sm">
-        <span>Heute: <b className="text-blue-600">{stats.new_today}</b></span>
-        <span>Hot: <b className="text-red-600">{stats.hot}</b></span>
-        <span>Warm: <b className="text-orange-500">{stats.warm}</b></span>
-        <span>Low: <b className="text-gray-400">{stats.low}</b></span>
-        <span className="ml-auto">Contacted: <b>{stats.contacted}</b></span>
-        <span>Replied: <b className="text-green-600">{stats.replied}</b></span>
-        <a
-          href="/api/leads/export"
-          className="text-xs text-blue-600 hover:underline"
-        >
-          CSV Export
-        </a>
+      {/* Stats cards */}
+      <div className="px-6 pb-4">
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: "Hot",       value: stats.hot,       color: "text-red-600",    bg: "bg-red-50",     ring: "ring-red-100",    dot: "bg-red-500"    },
+            { label: "Warm",      value: stats.warm,      color: "text-orange-600", bg: "bg-orange-50",  ring: "ring-orange-100", dot: "bg-orange-500" },
+            { label: "Neu heute", value: stats.new_today, color: "text-indigo-600", bg: "bg-indigo-50",  ring: "ring-indigo-100", dot: "bg-indigo-500" },
+            { label: "Contacted", value: stats.contacted, color: "text-green-600",  bg: "bg-green-50",   ring: "ring-green-100",  dot: "bg-green-500"  },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center justify-between"
+            >
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-1">{s.label}</p>
+                <p className={`text-2xl font-bold tabular ${s.color}`}>{s.value}</p>
+              </div>
+              <div className={`w-8 h-8 ${s.bg} ring-1 ${s.ring} rounded-xl flex items-center justify-center`}>
+                <div className={`w-2 h-2 ${s.dot} rounded-full`} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex gap-2 px-4 py-2 bg-white border-b text-sm flex-wrap">
-        <span className="text-gray-400 text-xs self-center">Filter:</span>
-        {["hot", "warm", "low"].map((t) => (
+      {/* Filters */}
+      <div className="px-6 pb-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-300 mr-1">Filter:</span>
+          {[
+            { key: "tier", val: undefined, label: "Alle" },
+            { key: "tier", val: "hot",  label: "Hot" },
+            { key: "tier", val: "warm", label: "Warm" },
+            { key: "tier", val: "low",  label: "Low" },
+          ].map((f) => {
+            const isActive = f.val ? activeTier === f.val : !activeTier && !activeStatus;
+            const href = f.val ? `?tier=${f.val}` : "/";
+            return (
+              <a
+                key={`${f.key}-${f.val ?? "all"}`}
+                href={href}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                }`}
+              >
+                {f.label}
+              </a>
+            );
+          })}
+          <div className="w-px h-4 bg-gray-100 mx-1" />
           <a
-            key={t}
-            href={`?tier=${t}`}
-            className={`px-3 py-1 border rounded text-xs capitalize ${
-              activeTier === t ? "bg-gray-800 text-white border-gray-800" : "hover:bg-gray-50"
+            href="?status=pending_review"
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+              activeStatus === "pending_review"
+                ? "bg-orange-500 text-white"
+                : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
             }`}
           >
-            {t}
+            Review ausstehend
           </a>
-        ))}
-        <a
-          href="/"
-          className={`px-3 py-1 border rounded text-xs ${
-            !activeTier ? "bg-gray-800 text-white border-gray-800" : "hover:bg-gray-50"
-          }`}
-        >
-          Alle
-        </a>
-        <span className="ml-auto text-xs text-gray-400">{leads.length} Leads</span>
+          <span className="ml-auto text-xs text-gray-400 tabular">{totalLeads} Leads</span>
+        </div>
       </div>
 
-      {/* Lead Table */}
-      {leads.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-          <p className="text-lg font-medium mb-2">Noch keine Leads</p>
-          <p className="text-sm">Starte die Pipeline oben um Leads zu generieren.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm bg-white">
-            <thead className="border-b text-xs text-gray-500 uppercase bg-gray-50 sticky top-0">
-              <tr>
-                {["Firma", "Branche", "Bezirk", "Score", "Tier", "Stage", "Email", "Status", ""].map(
-                  (h) => (
-                    <th key={h} className="px-4 py-3 text-left font-medium">
+      {/* Lead table */}
+      <div className="px-6 pb-6">
+        {leads.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-gray-300" viewBox="0 0 24 24" fill="none">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="text-gray-500 font-medium mb-1">Noch keine Leads</p>
+            <p className="text-gray-400 text-sm">Starte die Pipeline unter &quot;Pipeline&quot;.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-50">
+                  {["Firma", "Kategorie", "Bezirk", "Score", "Tier", "Stage", "Email", "Status", ""].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400"
+                    >
                       {h}
                     </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((l) => (
-                <tr key={l.id} className="border-b hover:bg-blue-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">{l.name ?? "—"}</td>
-                  <td className="px-4 py-3 text-gray-500">{l.category}</td>
-                  <td className="px-4 py-3 text-gray-500">{l.district}</td>
-                  <td className="px-4 py-3 font-mono text-sm">
-                    {l.lead_score !== null ? (
-                      <span className={l.lead_score >= 12 ? "text-red-600 font-bold" : l.lead_score >= 7 ? "text-orange-500 font-semibold" : "text-gray-400"}>
-                        {l.lead_score}
-                      </span>
-                    ) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {l.lead_tier && (
-                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${TIER[l.lead_tier] ?? ""}`}>
-                        {l.lead_tier.toUpperCase()}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{l.stage}</td>
-                  <td className="px-4 py-3 text-center">
-                    {l.has_email ? (
-                      <span className="text-green-500 font-bold">✓</span>
-                    ) : (
-                      <span className="text-gray-300">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {l.follow_up_due ? (
-                      <span className="text-orange-500 font-semibold text-xs bg-orange-50 px-2 py-0.5 rounded">
-                        Follow-up!
-                      </span>
-                    ) : (
-                      <span className={`text-xs ${STATUS[l.status] ?? ""}`}>{l.status}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/leads/${l.id}`}
-                      className="text-blue-600 hover:underline text-xs"
-                    >
-                      Detail →
-                    </Link>
-                  </td>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+              </thead>
+              <tbody>
+                {leads.map((l, idx) => {
+                  const tier = l.lead_tier ?? "low";
+                  const tStyle = TIER_STYLES[tier] ?? TIER_STYLES.low;
+                  return (
+                    <tr
+                      key={l.id}
+                      className={`border-b border-gray-50 last:border-0 hover:bg-indigo-50/30 transition-colors duration-100 ${idx % 2 === 0 ? "" : "bg-gray-50/40"}`}
+                    >
+                      {/* Firma */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg ${tStyle.initials} flex items-center justify-center text-[11px] font-bold flex-shrink-0`}>
+                            {getInitials(l.name)}
+                          </div>
+                          <span className="font-semibold text-gray-900 text-[13px]">{l.name ?? "—"}</span>
+                        </div>
+                      </td>
+                      {/* Kategorie */}
+                      <td className="px-4 py-3 text-gray-500 text-[13px]">{l.category ?? "—"}</td>
+                      {/* Bezirk */}
+                      <td className="px-4 py-3 text-gray-400 text-[13px]">{l.district ?? "—"}</td>
+                      {/* Score */}
+                      <td className="px-4 py-3">
+                        {l.lead_score !== null ? (
+                          <span className={`tabular font-bold text-[13px] ${
+                            l.lead_score >= 12 ? "text-red-600" : l.lead_score >= 7 ? "text-orange-500" : "text-gray-400"
+                          }`}>
+                            {l.lead_score}
+                          </span>
+                        ) : (
+                          <span className="text-gray-200">—</span>
+                        )}
+                      </td>
+                      {/* Tier */}
+                      <td className="px-4 py-3">
+                        {l.lead_tier && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${tStyle.badge}`}>
+                            {l.lead_tier}
+                          </span>
+                        )}
+                      </td>
+                      {/* Stage */}
+                      <td className="px-4 py-3">
+                        <span className="text-[12px] text-gray-400">
+                          {STAGE_LABEL[l.stage] ?? l.stage}
+                        </span>
+                      </td>
+                      {/* Email */}
+                      <td className="px-4 py-3 text-center">
+                        {l.has_email ? (
+                          <span className="inline-flex w-5 h-5 items-center justify-center bg-green-100 rounded-full">
+                            <svg className="w-3 h-3 text-green-600" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </span>
+                        ) : (
+                          <span className="text-gray-200 text-xs">—</span>
+                        )}
+                      </td>
+                      {/* Status */}
+                      <td className="px-4 py-3">
+                        {l.follow_up_due ? (
+                          <span className="text-orange-600 font-semibold text-[12px] bg-orange-50 px-2 py-0.5 rounded-md">
+                            Follow-up
+                          </span>
+                        ) : (
+                          <span className={`text-[12px] capitalize ${STATUS_STYLES[l.status] ?? "text-gray-400"}`}>
+                            {l.status}
+                          </span>
+                        )}
+                      </td>
+                      {/* Action */}
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/leads/${l.id}`}
+                          className="inline-flex items-center gap-1 text-[12px] font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg transition-all duration-100"
+                        >
+                          Öffnen
+                          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </DashboardShell>
   );
 }
