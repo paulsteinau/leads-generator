@@ -40,7 +40,14 @@ export interface LeadDetail {
   lead_score: number | null;
   lead_tier: string | null;
   stage: string;
+  demo_url: string | null;
+  demo_screenshots: string | null;
+  audit_score: number | null;
+  qualification: string | null;
+  industry_tag: string | null;
+  description: string | null;
   email_subject: string | null;
+  email_subjects: string | null;
   email_body_a: string | null;
   email_body_b: string | null;
   email_approved: boolean;
@@ -58,6 +65,15 @@ export interface Stats {
   new_today: number;
   contacted: number;
   replied: number;
+}
+
+export interface PipelineStatus {
+  running: boolean;
+  pid: number | null;
+}
+
+export interface LogResponse {
+  lines: string[];
 }
 
 export const getStats = (): Promise<Stats> =>
@@ -91,3 +107,49 @@ export const updateEmail = (id: number, email: string) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
+
+export const getPipelineStatus = (): Promise<PipelineStatus> =>
+  fetch(`${API}/pipeline/status`, { cache: "no-store" }).then((r) => r.json());
+
+export const startPipeline = (dryRun = false): Promise<{ ok: boolean; pid?: number; error?: string }> =>
+  fetch(`${API}/pipeline/start?dry_run=${dryRun}`, { method: "POST" }).then((r) => r.json());
+
+export const stopPipeline = (): Promise<{ ok: boolean }> =>
+  fetch(`${API}/pipeline/stop`, { method: "POST" }).then((r) => r.json());
+
+export const getLogs = (lines = 100): Promise<LogResponse> =>
+  fetch(`${API}/pipeline/logs?lines=${lines}`, { cache: "no-store" }).then((r) => r.json());
+
+export const getPendingReview = (): Promise<{ count: number }> =>
+  fetch(`${API}/leads/pending-review`, { cache: "no-store" }).then((r) => r.json());
+
+export async function generateDemo(leadId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/leads/${leadId}/generate-demo`, { method: "POST" });
+  return res.json();
+}
+
+export async function getDemoStatus(leadId: number): Promise<{
+  stage: string; demo_url: string | null; has_screenshots: boolean; ready: boolean; failed: boolean;
+}> {
+  const res = await fetch(`${API}/leads/${leadId}/demo-status`);
+  return res.json();
+}
+
+export async function approveLead(leadId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/leads/${leadId}/approve`, { method: "POST" });
+  return res.json();
+}
+
+export async function rejectLead(leadId: number): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/leads/${leadId}/reject`, { method: "POST" });
+  return res.json();
+}
+
+export async function editDemo(leadId: number, description: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/leads/${leadId}/edit-demo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ description }),
+  });
+  return res.json();
+}

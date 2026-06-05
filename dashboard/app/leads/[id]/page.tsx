@@ -1,5 +1,7 @@
 import { getLead } from "@/lib/api";
 import EmailPanel from "./EmailPanel";
+import ReviewPanel from "./ReviewPanel";
+import ScreenshotTabs from "./ScreenshotTabs";
 import Link from "next/link";
 
 function Bar({ label, v }: { label: string; v: number | null }) {
@@ -31,6 +33,8 @@ function Check({ ok, label }: { ok: boolean | null; label: string }) {
   );
 }
 
+const SCREENSHOT_LABELS = ["Desktop Home", "Desktop Full", "Mobile Home", "Mobile Full"];
+
 export default async function LeadPage({ params }: { params: { id: string } }) {
   const lead = await getLead(Number(params.id));
 
@@ -38,6 +42,15 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
     lead.lead_tier === "hot" ? "bg-red-100 text-red-700" :
     lead.lead_tier === "warm" ? "bg-orange-100 text-orange-700" :
     "bg-gray-100 text-gray-500";
+
+  let demoScreenshots: string[] = [];
+  if (lead.demo_screenshots) {
+    try {
+      demoScreenshots = JSON.parse(lead.demo_screenshots) as string[];
+    } catch {
+      demoScreenshots = [];
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,6 +111,46 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
               )}
             </div>
           </div>
+
+          {(lead.audit_score !== null || lead.qualification || lead.industry_tag || lead.description) && (
+            <div className="bg-white rounded-xl p-5 border">
+              <h2 className="font-semibold text-xs text-gray-400 uppercase tracking-wide mb-3">KI-Audit</h2>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {lead.audit_score !== null && (
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    lead.audit_score < 40
+                      ? "bg-red-100 text-red-700"
+                      : lead.audit_score <= 65
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-green-100 text-green-700"
+                  }`}>
+                    Score {lead.audit_score}
+                  </span>
+                )}
+                {lead.qualification && (
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                    lead.qualification === "bad_website"
+                      ? "bg-red-50 text-red-600"
+                      : lead.qualification === "mediocre"
+                      ? "bg-yellow-50 text-yellow-700"
+                      : "bg-green-50 text-green-700"
+                  }`}>
+                    {lead.qualification === "bad_website" ? "Schlechte Website" : lead.qualification === "mediocre" ? "Mittelmassig" : "Gute Website"}
+                  </span>
+                )}
+                {lead.industry_tag && (
+                  <span className="px-2.5 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
+                    {lead.industry_tag}
+                  </span>
+                )}
+              </div>
+              {lead.description && (
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {lead.description.length > 120 ? lead.description.slice(0, 120) + "…" : lead.description}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Col 2: Analyse */}
@@ -130,10 +183,31 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           )}
+
+          {lead.demo_url && (
+            <div className="bg-white rounded-xl p-5 border">
+              <h2 className="font-semibold text-xs text-gray-400 uppercase tracking-wide mb-3">Demo Preview</h2>
+              <iframe
+                src={lead.demo_url}
+                className="w-full h-96 rounded-lg border"
+                title="Demo Preview"
+              />
+            </div>
+          )}
+
+          {demoScreenshots.length > 0 && (
+            <div className="bg-white rounded-xl p-5 border">
+              <h2 className="font-semibold text-xs text-gray-400 uppercase tracking-wide mb-3">Screenshots</h2>
+              <ScreenshotTabs shots={demoScreenshots} labels={SCREENSHOT_LABELS} />
+            </div>
+          )}
         </div>
 
-        {/* Col 3: Email + CRM */}
-        <EmailPanel lead={lead} />
+        {/* Col 3: Review + Email + CRM */}
+        <div className="space-y-4">
+          {lead.stage === "ready_for_review" && <ReviewPanel lead={lead} />}
+          <EmailPanel lead={lead} />
+        </div>
       </div>
     </div>
   );
