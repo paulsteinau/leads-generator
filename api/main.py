@@ -389,6 +389,48 @@ def edit_demo(lead_id: int, body: EditDemoRequest):
     return {"ok": True}
 
 
+# ── Demo Generation ───────────────────────────────────────────────────────────
+
+@app.post("/leads/{lead_id}/generate-demo")
+def trigger_generate_demo(lead_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT stage FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    if row["stage"] in ("generating_demo",):
+        return {"ok": False, "error": "Already generating"}
+
+    import sys, os
+    cmd = [
+        sys.executable,
+        str(ROOT / "pipeline" / "generate_demo_single.py"),
+        str(lead_id),
+    ]
+    subprocess.Popen(
+        cmd,
+        cwd=str(ROOT),
+        env={**os.environ, "PYTHONPATH": str(ROOT)},
+    )
+    return {"ok": True, "lead_id": lead_id}
+
+
+@app.get("/leads/{lead_id}/demo-status")
+def demo_status(lead_id: int):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT stage, demo_url, demo_screenshots FROM leads WHERE id=?", (lead_id,)
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    return {
+        "stage": row["stage"],
+        "demo_url": row["demo_url"],
+        "has_screenshots": bool(row["demo_screenshots"]),
+        "ready": row["stage"] == "ready_for_review",
+        "failed": row["stage"] == "demo_failed",
+    }
+
+
 # ── Webhooks ──────────────────────────────────────────────────────────────────
 
 @app.post("/webhook/resend")
