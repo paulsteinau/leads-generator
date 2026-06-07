@@ -20,7 +20,7 @@ from api.models import (
 app = FastAPI(title="Berlin Lead-Gen API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://localhost:\d+",
+    allow_origin_regex=r"https?://(localhost:\d+|.*\.vercel\.app)",
     allow_methods=["*"],
     allow_headers=["*"],
 )
