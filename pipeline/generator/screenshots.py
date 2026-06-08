@@ -7,6 +7,7 @@ Returns list of base64 PNG strings saved in the demo dir.
 import asyncio
 import base64
 import json
+import os
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -16,7 +17,7 @@ try:
 except Exception:
     async def stealth_async(page): pass
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data" / "demos"
+DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data")) / "demos"
 
 VIEWPORTS = [
     {"name": "desktop-home", "width": 1280, "height": 800, "full_page": False,

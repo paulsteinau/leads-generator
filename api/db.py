@@ -1,7 +1,8 @@
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent / "data" / "leads.db"
+DB_PATH = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent / "data")) / "leads.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS leads (

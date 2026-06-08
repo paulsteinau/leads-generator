@@ -17,7 +17,7 @@ from pipeline.researcher.inspiration import get_inspiration_notes
 from pipeline.utils.claude_p import claude_p
 from pipeline.utils.skill_loader import build_design_system_prompt
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data" / "demos"
+DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data")) / "demos"
 
 
 def _make_slug(lead: dict) -> str:
