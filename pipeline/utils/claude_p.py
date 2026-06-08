@@ -65,6 +65,10 @@ def claude_p(
     if system:
         kwargs["system"] = system
 
+    # Extended output beta required for max_tokens > 8192
+    if max_tokens > 8192:
+        kwargs["extra_headers"] = {"anthropic-beta": "output-128k-2025-02-19"}
+
     resp = client.messages.create(**kwargs)
     text = resp.content[0].text
 

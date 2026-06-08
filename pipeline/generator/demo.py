@@ -1,15 +1,15 @@
 # pipeline/generator/demo.py
 """
-Generates a full, self-contained HTML demo website for a lead.
+Generates a premium React demo website for a lead.
 Uses: lead data + scraped content + category inspiration + design skills.
-Deploys to Vercel and returns the live URL.
+Builds with Vite and deploys to Vercel.
 """
 import asyncio
 import json
 import os
 import re
+import shutil
 import subprocess
-import time
 from pathlib import Path
 
 from pipeline.scraper.website_content import scrape_website_content
@@ -18,6 +18,8 @@ from pipeline.utils.claude_p import claude_p
 from pipeline.utils.skill_loader import build_design_system_prompt
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data")) / "demos"
+TEMPLATE_DIR = Path(__file__).parent.parent / "react-template"
+NPM_CACHE_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data")) / ".npm-cache"
 
 
 def _make_slug(lead: dict) -> str:
@@ -31,29 +33,29 @@ def _build_prompt(lead: dict, content: dict, inspiration: str, slug: str) -> str
     nav_text = ", ".join(content.get("nav_items", []))
     testimonials_text = "\n".join(f'"{t}"' for t in content.get("testimonials", [])) or "None found"
 
-    # Real images from their existing site
     scraped_images = content.get("images", [])
     if scraped_images:
         img_lines = "\n".join(
-            f"  <img src=\"{i.get('src', '')}\" alt=\"{i.get('alt', '')}\">"
+            f'  src="{i.get("src", "")}" alt="{i.get("alt", "")}"'
             for i in scraped_images[:6]
             if i.get("src", "").startswith("http")
         )
-        image_section = f"## Real Images from Their Current Website\nUse these directly in <img> tags where appropriate:\n{img_lines}"
+        image_section = (
+            f"## Real Images from Their Current Website\n"
+            f"Use these as <img src={{...}}> props where appropriate:\n{img_lines}"
+        )
     else:
-        image_section = "## Images\nNo real images scraped — use Picsum placeholders only."
+        image_section = "## Images\nNo real images — use Picsum placeholders with descriptive seeds."
 
     screenshot_context = ""
     if content.get("screenshot_b64"):
         screenshot_context = (
             "You are viewing a screenshot of their current website above. "
-            "Your job is to dramatically improve the design quality while preserving every piece of real content.\n\n"
+            "Dramatically improve the design quality while preserving all real content.\n\n"
         )
 
     return f"""
-{screenshot_context}Generate a complete, stunning single-page HTML website for this German business.
-This is a DEMO to show the business owner what their website COULD look like.
-Use ALL the business content provided — don't invent facts. Redesign the presentation.
+{screenshot_context}Generate a complete single-file React App.jsx for this German business demo website.
 
 ## Business Info
 Name: {lead.get('name', '')}
@@ -63,9 +65,9 @@ Address: {lead.get('address', '')}
 Phone: {lead.get('phone', '') or content.get('contact', {}).get('phone', '')}
 Email: {lead.get('email', '') or content.get('contact', {}).get('email', '')}
 Website: {lead.get('website', '')}
-Google Rating: {lead.get('google_rating', '')} ({lead.get('google_reviews', '')} reviews)
+Google Rating: {lead.get('google_rating', '')} ({lead.get('google_reviews', '')} Bewertungen)
 
-## Existing Website Content (USE AS SOURCE MATERIAL)
+## Existing Website Content (USE AS SOURCE MATERIAL — do not invent facts)
 Current title: {content.get('title', '')}
 Current tagline: {content.get('tagline', '')}
 Current description: {content.get('description', '')}
@@ -74,72 +76,99 @@ Services found:
 {services_text}
 Testimonials found:
 {testimonials_text}
-Raw text excerpt: {content.get('raw_text', '')[:800]}
+Raw text excerpt: {content.get('raw_text', '')[:1200]}
 
 {image_section}
 
-## Design Inspiration for This Category
+## Picsum Placeholder Seeds (use these exact seeds for sections without real images)
+Hero: https://picsum.photos/seed/{slug}-hero/1600/900
+Service 1: https://picsum.photos/seed/{slug}-s1/800/600
+Service 2: https://picsum.photos/seed/{slug}-s2/800/600
+Service 3: https://picsum.photos/seed/{slug}-s3/800/600
+About: https://picsum.photos/seed/{slug}-about/1200/800
+
+## Design Inspiration
 {inspiration}
 
-## Requirements
-- Output ONLY valid HTML — no markdown, no explanation, no code fences
-- Use Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
-- Use Google Fonts (pick 2 premium fonts matching the category archetype)
-- Must include these sections in order:
-  1. Sticky nav with logo (business name) + nav links + "Jetzt anfragen" CTA button
-  2. Hero: full-viewport height, strong headline + subheadline + primary CTA button
-  3. Services/Leistungen: at least 3 cards from actual services found
-  4. Why us / Über uns: genuine copy from raw_text
-  5. Testimonials/Reviews: Google rating ({lead.get('google_rating', '5.0')} ★, {lead.get('google_reviews', '')} reviews) + any testimonials found
-  6. Contact: real phone, email, address + simple contact form
-  7. Footer: business name, links, address
-- Images: use the real scraped images above where they fit. For any section needing an image without a real one, use Picsum placeholders:
-  Hero background: https://picsum.photos/seed/{slug}-hero/1600/900
-  Service cards: https://picsum.photos/seed/{slug}-s1/800/500, {slug}-s2, {slug}-s3
-  About section: https://picsum.photos/seed/{slug}-about/1200/700
-  Always set object-fit: cover and appropriate dimensions.
-- Real German copy throughout — no Lorem ipsum, no placeholder text
-- All CTAs say "Termin vereinbaren" or "Jetzt anfragen"
-- Mobile responsive (Tailwind breakpoints)
-- Scroll reveal animations: add this JS block before </body>:
-  <script>
-  const observer = new IntersectionObserver((entries) => {{
-    entries.forEach(e => {{ if (e.isIntersecting) {{ e.target.classList.add('revealed'); observer.unobserve(e.target); }} }});
-  }}, {{ threshold: 0.15 }});
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-  </script>
-  Add CSS: .reveal {{ opacity: 0; transform: translateY(28px); transition: opacity 0.65s ease, transform 0.65s ease; }}
-  .revealed {{ opacity: 1; transform: translateY(0); }}
-  Apply class "reveal" to: every section heading, service cards, testimonial cards, contact form
-
-Output only the complete HTML file starting with <!DOCTYPE html>.
+## Output Rules
+- Output ONLY valid JSX starting with import statements
+- No markdown fences, no explanation text
+- File must start with: import React from 'react'
+- All components defined in one file, exported as: export default function App()
+- Google Fonts: import via a <style> tag rendered in the component, e.g.:
+  const FontImport = () => (
+    <style>{{`@import url('https://fonts.googleapis.com/css2?family=...');`}}</style>
+  )
+- Tailwind v4: use utility classes directly, no config needed
+- motion/react: import {{ motion, useScroll, useTransform, useInView, useReducedMotion }} from 'motion/react'
+- gsap: import {{ gsap }} from 'gsap'; import {{ ScrollTrigger }} from 'gsap/ScrollTrigger'
+- Icons: import {{ Phone, MapPin, Star, ArrowRight, CheckCircle, Clock }} from '@phosphor-icons/react'
+- All copy in German
+- Sections in order: Nav, Hero, Leistungen, Über uns, Bewertungen, Kontakt, Footer
 """.strip()
 
 
-def _deploy_to_vercel(demo_dir: Path, slug: str) -> str | None:
-    """Deploy demo dir to Vercel and return the URL."""
+def _setup_demo_dir(demo_dir: Path) -> None:
+    """Copy React template into demo_dir."""
+    if demo_dir.exists():
+        shutil.rmtree(demo_dir)
+    shutil.copytree(TEMPLATE_DIR, demo_dir)
+    (demo_dir / "src").mkdir(exist_ok=True)
+
+
+def _build_react(demo_dir: Path) -> bool:
+    """Run npm install + vite build. Returns True on success."""
+    NPM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     try:
         result = subprocess.run(
-            ["vercel", "--yes", "--name", f"lead-{slug}", "--prod"],
+            ["npm", "install", "--cache", str(NPM_CACHE_DIR), "--prefer-offline"],
+            cwd=str(demo_dir),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if result.returncode != 0:
+            print(f"[demo] npm install failed:\n{result.stderr[-2000:]}")
+            return False
+
+        result = subprocess.run(
+            ["npm", "run", "build"],
             cwd=str(demo_dir),
             capture_output=True,
             text=True,
             timeout=120,
         )
-        # Extract URL from output
+        if result.returncode != 0:
+            print(f"[demo] vite build failed:\n{result.stderr[-2000:]}")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"[demo] build error: {e}")
+        return False
+
+
+def _deploy_to_vercel(dist_dir: Path, slug: str) -> str | None:
+    """Deploy built dist/ to Vercel and return the live URL."""
+    try:
+        result = subprocess.run(
+            ["vercel", "--yes", "--name", f"lead-{slug}", "--prod"],
+            cwd=str(dist_dir),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
         for line in result.stdout.splitlines():
             line = line.strip()
             if line.startswith("https://"):
                 return line
-        # Try stderr too
         for line in result.stderr.splitlines():
-            line = line.strip()
             if "https://" in line:
                 m = re.search(r'https://[^\s]+', line)
                 if m:
                     return m.group()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[demo] vercel deploy error: {e}")
     return None
 
 
@@ -147,41 +176,41 @@ def generate_demo(lead: dict, conn) -> str | None:
     """
     Full demo generation pipeline for a single lead.
     Returns the deployed demo URL, or None on failure.
-    Updates the lead record in DB throughout.
     """
     lead_id = lead["id"]
     slug = _make_slug(lead)
     demo_dir = DATA_DIR / slug
-    demo_dir.mkdir(parents=True, exist_ok=True)
 
-    # Stage 1: Scrape existing website content
+    # Stage 1: Scrape existing website
     content: dict = {}
     if lead.get("website"):
         content = asyncio.run(scrape_website_content(lead["website"]))
-        (demo_dir / "content.json").write_text(
+        (DATA_DIR / slug).mkdir(parents=True, exist_ok=True)
+        (DATA_DIR / slug / "content.json").write_text(
             json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     else:
-        content = {"raw_text": "", "services": [], "contact": {}, "nav_items": [], "testimonials": []}
+        content = {"raw_text": "", "services": [], "contact": {}, "nav_items": [], "testimonials": [], "images": []}
 
-    # Stage 2: Get category-specific design inspiration
+    # Stage 2: Category design inspiration
     inspiration = get_inspiration_notes(
         category=lead.get("category", ""),
         conn=conn,
         lead_id=lead_id,
     )
 
-    # Stage 3: Build design system prompt from installed skill files
+    # Stage 3: Design system prompt
     design_system = build_design_system_prompt()
 
-    # Stage 4: Generate HTML (with screenshot vision input if available)
+    # Stage 4: Generate App.jsx with Claude
     prompt = _build_prompt(lead, content, inspiration, slug)
     screenshot_b64 = content.get("screenshot_b64") or None
-    html = claude_p(
+
+    app_jsx = claude_p(
         prompt=prompt,
         system=design_system,
         model="claude-sonnet-4-6",
-        max_tokens=8192,
+        max_tokens=16000,
         conn=conn,
         lead_id=lead_id,
         stage="demo_gen",
@@ -189,22 +218,31 @@ def generate_demo(lead: dict, conn) -> str | None:
         image_media_type="image/jpeg",
     )
 
-    # Strip any accidental markdown fences
-    html = html.strip()
-    if html.startswith("```"):
-        html = re.sub(r'^```[^\n]*\n', '', html)
-        html = re.sub(r'\n```$', '', html)
+    # Strip accidental markdown fences
+    app_jsx = app_jsx.strip()
+    if app_jsx.startswith("```"):
+        app_jsx = re.sub(r'^```[^\n]*\n', '', app_jsx)
+        app_jsx = re.sub(r'\n```$', '', app_jsx)
 
-    (demo_dir / "index.html").write_text(html, encoding="utf-8")
+    # Stage 5: Set up React project and write App.jsx
+    _setup_demo_dir(demo_dir)
+    (demo_dir / "src" / "App.jsx").write_text(app_jsx, encoding="utf-8")
 
-    # Vercel needs a minimal config to serve index.html
-    vercel_json = json.dumps({"rewrites": [{"source": "/(.*)", "destination": "/index.html"}]})
-    (demo_dir / "vercel.json").write_text(vercel_json, encoding="utf-8")
+    # Stage 6: Build with Vite
+    build_ok = _build_react(demo_dir)
+    if not build_ok:
+        # Save App.jsx for manual inspection even if build failed
+        conn.execute(
+            "UPDATE leads SET stage='demo_build_failed', updated_at=datetime('now') WHERE id=?",
+            (lead_id,),
+        )
+        conn.commit()
+        return None
 
-    # Stage 5: Deploy to Vercel
-    demo_url = _deploy_to_vercel(demo_dir, slug)
+    # Stage 7: Deploy dist/ to Vercel
+    dist_dir = demo_dir / "dist"
+    demo_url = _deploy_to_vercel(dist_dir, slug)
 
-    # Update DB
     conn.execute(
         "UPDATE leads SET demo_url=?, demo_generated_at=datetime('now'),"
         " stage='ready_for_review', updated_at=datetime('now') WHERE id=?",
