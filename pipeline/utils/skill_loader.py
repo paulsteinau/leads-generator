@@ -1,13 +1,15 @@
 # pipeline/utils/skill_loader.py
 from pathlib import Path
 
-SKILLS_DIR = Path.home() / ".agents" / "skills"
+SKILLS_DIR = Path(__file__).parent.parent / "skills"
 
 DESIGN_SKILLS = [
     "design-taste-frontend",
     "high-end-visual-design",
     "emil-design-eng",
     "redesign-existing-projects",
+    "full-output-enforcement",
+    "gpt-taste",
 ]
 
 
