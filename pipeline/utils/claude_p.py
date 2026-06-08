@@ -8,11 +8,15 @@ INPUT_COST = {
     "claude-haiku-4-5-20251001": 0.80 / 1_000_000,
     "claude-haiku-4-5": 0.80 / 1_000_000,
     "claude-sonnet-4-5": 3.00 / 1_000_000,
+    "claude-sonnet-4-6": 3.00 / 1_000_000,
+    "claude-opus-4-8": 15.00 / 1_000_000,
 }
 OUTPUT_COST = {
     "claude-haiku-4-5-20251001": 4.00 / 1_000_000,
     "claude-haiku-4-5": 4.00 / 1_000_000,
     "claude-sonnet-4-5": 15.00 / 1_000_000,
+    "claude-sonnet-4-6": 15.00 / 1_000_000,
+    "claude-opus-4-8": 75.00 / 1_000_000,
 }
 
 
@@ -31,13 +35,32 @@ def claude_p(
     lead_id: int = 0,
     stage: str = "",
     conn=None,
+    image_b64: str | None = None,
+    image_media_type: str = "image/jpeg",
 ) -> str:
-    """Call Claude and return the text response. Logs cost to DB if conn provided."""
+    """Call Claude and return the text response. Logs cost to DB if conn provided.
+    Pass image_b64 to include a vision input alongside the text prompt."""
     client = _get_client()
+
+    if image_b64:
+        content = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image_media_type,
+                    "data": image_b64,
+                },
+            },
+            {"type": "text", "text": prompt},
+        ]
+    else:
+        content = prompt
+
     kwargs: dict = {
         "model": model,
         "max_tokens": max_tokens,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": content}],
     }
     if system:
         kwargs["system"] = system

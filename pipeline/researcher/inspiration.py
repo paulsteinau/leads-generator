@@ -59,8 +59,8 @@ def get_inspiration_notes(category: str, conn=None, lead_id: int = 0) -> str:
 
     notes = claude_p(
         prompt=prompt,
-        model="claude-haiku-4-5-20251001",
-        max_tokens=500,
+        model="claude-sonnet-4-6",
+        max_tokens=600,
         conn=conn,
         lead_id=lead_id,
         stage="inspiration",

@@ -26,14 +26,32 @@ def _make_slug(lead: dict) -> str:
     return f"{name}-{lead['id']}"
 
 
-def _build_prompt(lead: dict, content: dict, inspiration: str) -> str:
+def _build_prompt(lead: dict, content: dict, inspiration: str, slug: str) -> str:
     services_text = "\n".join(f"- {s}" for s in content.get("services", [])) or "Not specified"
-    contact_text = json.dumps(content.get("contact", {}), ensure_ascii=False)
     nav_text = ", ".join(content.get("nav_items", []))
     testimonials_text = "\n".join(f'"{t}"' for t in content.get("testimonials", [])) or "None found"
 
+    # Real images from their existing site
+    scraped_images = content.get("images", [])
+    if scraped_images:
+        img_lines = "\n".join(
+            f"  <img src=\"{i.get('src', '')}\" alt=\"{i.get('alt', '')}\">"
+            for i in scraped_images[:6]
+            if i.get("src", "").startswith("http")
+        )
+        image_section = f"## Real Images from Their Current Website\nUse these directly in <img> tags where appropriate:\n{img_lines}"
+    else:
+        image_section = "## Images\nNo real images scraped — use Picsum placeholders only."
+
+    screenshot_context = ""
+    if content.get("screenshot_b64"):
+        screenshot_context = (
+            "You are viewing a screenshot of their current website above. "
+            "Your job is to dramatically improve the design quality while preserving every piece of real content.\n\n"
+        )
+
     return f"""
-Generate a complete, stunning single-page HTML website for this German business.
+{screenshot_context}Generate a complete, stunning single-page HTML website for this German business.
 This is a DEMO to show the business owner what their website COULD look like.
 Use ALL the business content provided — don't invent facts. Redesign the presentation.
 
@@ -58,6 +76,8 @@ Testimonials found:
 {testimonials_text}
 Raw text excerpt: {content.get('raw_text', '')[:800]}
 
+{image_section}
+
 ## Design Inspiration for This Category
 {inspiration}
 
@@ -67,17 +87,30 @@ Raw text excerpt: {content.get('raw_text', '')[:800]}
 - Use Google Fonts (pick 2 premium fonts matching the category archetype)
 - Must include these sections in order:
   1. Sticky nav with logo (business name) + nav links + "Jetzt anfragen" CTA button
-  2. Hero: full-viewport height, strong headline + subheadline + primary CTA
-  3. Services/Leistungen section: at least 3 cards from actual services found
-  4. Why us / Über uns: use actual content from raw_text, genuine copy
-  5. Testimonials/Reviews: use Google rating ({lead.get('google_rating', '5.0')} ★, {lead.get('google_reviews', '')} reviews) + any testimonials found
-  6. Contact section: real phone, email, address with a simple contact form
+  2. Hero: full-viewport height, strong headline + subheadline + primary CTA button
+  3. Services/Leistungen: at least 3 cards from actual services found
+  4. Why us / Über uns: genuine copy from raw_text
+  5. Testimonials/Reviews: Google rating ({lead.get('google_rating', '5.0')} ★, {lead.get('google_reviews', '')} reviews) + any testimonials found
+  6. Contact: real phone, email, address + simple contact form
   7. Footer: business name, links, address
+- Images: use the real scraped images above where they fit. For any section needing an image without a real one, use Picsum placeholders:
+  Hero background: https://picsum.photos/seed/{slug}-hero/1600/900
+  Service cards: https://picsum.photos/seed/{slug}-s1/800/500, {slug}-s2, {slug}-s3
+  About section: https://picsum.photos/seed/{slug}-about/1200/700
+  Always set object-fit: cover and appropriate dimensions.
 - Real German copy throughout — no Lorem ipsum, no placeholder text
-- All CTAs say "Termin vereinbaren" or "Jetzt anfragen" (not "Learn More" or English)
+- All CTAs say "Termin vereinbaren" or "Jetzt anfragen"
 - Mobile responsive (Tailwind breakpoints)
-- Add one tasteful CSS animation (e.g., fade-in hero text on load)
-- NO images — use CSS gradients, shapes, and typography instead (images won't load in demo)
+- Scroll reveal animations: add this JS block before </body>:
+  <script>
+  const observer = new IntersectionObserver((entries) => {{
+    entries.forEach(e => {{ if (e.isIntersecting) {{ e.target.classList.add('revealed'); observer.unobserve(e.target); }} }});
+  }}, {{ threshold: 0.15 }});
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+  Add CSS: .reveal {{ opacity: 0; transform: translateY(28px); transition: opacity 0.65s ease, transform 0.65s ease; }}
+  .revealed {{ opacity: 1; transform: translateY(0); }}
+  Apply class "reveal" to: every section heading, service cards, testimonial cards, contact form
 
 Output only the complete HTML file starting with <!DOCTYPE html>.
 """.strip()
@@ -141,16 +174,19 @@ def generate_demo(lead: dict, conn) -> str | None:
     # Stage 3: Build design system prompt from installed skill files
     design_system = build_design_system_prompt()
 
-    # Stage 4: Generate HTML
-    prompt = _build_prompt(lead, content, inspiration)
+    # Stage 4: Generate HTML (with screenshot vision input if available)
+    prompt = _build_prompt(lead, content, inspiration, slug)
+    screenshot_b64 = content.get("screenshot_b64") or None
     html = claude_p(
         prompt=prompt,
         system=design_system,
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=8192,
         conn=conn,
         lead_id=lead_id,
         stage="demo_gen",
+        image_b64=screenshot_b64,
+        image_media_type="image/jpeg",
     )
 
     # Strip any accidental markdown fences

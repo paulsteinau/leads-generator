@@ -4,6 +4,7 @@ Extracts all meaningful content from an existing website.
 Returns a dict usable as context for demo generation.
 """
 import asyncio
+import base64
 import json
 import re
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
@@ -75,6 +76,7 @@ async def scrape_website_content(url: str) -> dict:
         "testimonials": [],
         "images": [],
         "raw_text": "",
+        "screenshot_b64": "",
     }
 
     try:
@@ -143,6 +145,10 @@ async def scrape_website_content(url: str) -> dict:
             email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w{2,}', raw)
             if email_match:
                 result["contact"]["email"] = email_match.group()
+
+            # Screenshot (JPEG, viewport only — keeps payload small)
+            shot = await page.screenshot(type="jpeg", quality=80, full_page=False)
+            result["screenshot_b64"] = base64.b64encode(shot).decode()
 
             # Colors + images
             result["colors"] = await _extract_colors(page)
