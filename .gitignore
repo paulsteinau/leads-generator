@@ -7,3 +7,5 @@ pipeline.log
 dashboard/node_modules/
 dashboard/.next/
 dashboard/.env.local
+pipeline/react-template/node_modules/
+pipeline/react-template/dist/

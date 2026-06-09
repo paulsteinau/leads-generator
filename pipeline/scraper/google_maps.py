@@ -39,11 +39,8 @@ async def scrape_google_maps(query: str, max_results: int = 15) -> list[dict]:
     results = []
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            headless=False,
-            args=[
-                "--window-position=-32000,-32000",
-                "--disable-blink-features=AutomationControlled",
-            ],
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled"],
         )
         ctx = await browser.new_context(
             user_agent=random.choice(UAS),
@@ -121,9 +118,13 @@ async def scrape_google_maps(query: str, max_results: int = 15) -> list[dict]:
                         rating = float((await rating_el.inner_text()).replace(",", "."))
                     except Exception:
                         pass
-                rev_el = await page.query_selector('.F7nice span[aria-label]')
-                rev_text = await rev_el.get_attribute("aria-label") if rev_el else ""
-                reviews = _parse_reviews(rev_text or "")
+                rev_text = ""
+                for span in await page.query_selector_all('.F7nice span[aria-label]'):
+                    label = await span.get_attribute("aria-label") or ""
+                    if any(w in label.lower() for w in ["rezension", "review", "bewertung"]):
+                        rev_text = label
+                        break
+                reviews = _parse_reviews(rev_text)
                 website = await attr('a[data-item-id="authority"]', "href")
                 phone = await txt('[data-item-id^="phone"] .Io6YTe')
 

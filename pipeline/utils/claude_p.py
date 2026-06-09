@@ -63,7 +63,7 @@ def claude_p(
         "messages": [{"role": "user", "content": content}],
     }
     if system:
-        kwargs["system"] = system
+        kwargs["system"] = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
 
     # Extended output beta required for max_tokens > 8192
     if max_tokens > 8192:

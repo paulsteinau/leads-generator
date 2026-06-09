@@ -1,4 +1,5 @@
 # pipeline/utils/skill_loader.py
+import re
 from pathlib import Path
 
 SKILLS_DIR = Path(__file__).parent.parent / "skills"
@@ -12,14 +13,22 @@ DESIGN_SKILLS = [
     "gpt-taste",
 ]
 
+_FRONTMATTER_RE = re.compile(r"^---.*?---\s*", re.DOTALL)
 
-def build_design_system_prompt() -> str:
-    """
-    Returns a compact, React/Motion/GSAP-specific design system prompt.
-    All rules are adapted for JSX output (Tailwind v4, motion/react, gsap/ScrollTrigger).
-    The skill SKILL.md files in pipeline/skills/ serve as source reference material.
-    """
-    return """You are an elite frontend design engineer generating award-level React demo websites for German SMBs.
+
+def _load_skills() -> str:
+    parts = []
+    for name in DESIGN_SKILLS:
+        path = SKILLS_DIR / name / "SKILL.md"
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        text = _FRONTMATTER_RE.sub("", text).strip()
+        parts.append(f"=== {name} ===\n{text}")
+    return "\n\n".join(parts)
+
+
+_BASE_PROMPT = """You are an elite frontend design engineer generating award-level React demo websites for German SMBs.
 Stack: React 18 + Tailwind v4 (utility classes only, no config needed) + motion/react + gsap + ScrollTrigger + @phosphor-icons/react.
 Output a single complete App.jsx file. All components inlined. No imports from other local files.
 
@@ -114,3 +123,29 @@ Output a single complete App.jsx file. All components inlined. No imports from o
 - No 3-col equal-height equal-width feature cards
 - Google Fonts imported at top
 - App.jsx starts with all imports, ends with export default App"""
+
+
+def build_design_system_prompt() -> str:
+    skills_text = _load_skills()
+    if not skills_text:
+        return _BASE_PROMPT
+
+    override = """
+
+---
+
+## EXTENDED DESIGN PRINCIPLES (apply silently)
+
+AUTOMATION OVERRIDE — CRITICAL: You are in fully automated generation mode.
+- Output ONLY valid JSX starting with import statements. Nothing before the first import line.
+- Do NOT output: <design_plan> blocks, Design Read statements, mock Python RNG output,
+  [PAUSED] tags, pre-flight summaries, dial values, or any meta-commentary.
+- Do NOT ask clarifying questions. Infer everything from the brief.
+- Apply ALL principles below silently inside your design decisions.
+- If output would exceed the token budget, continue at full quality — never truncate with
+  "// rest of code" or similar. Complete every section.
+
+The following design skills define your taste and craft. Internalize them as you generate.
+
+"""
+    return _BASE_PROMPT + override + skills_text

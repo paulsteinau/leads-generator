@@ -148,12 +148,12 @@ def _build_react(demo_dir: Path) -> bool:
         return False
 
 
-def _deploy_to_vercel(dist_dir: Path, slug: str) -> str | None:
+def _deploy_to_vercel(demo_dir: Path, slug: str) -> str | None:
     """Deploy built dist/ to Vercel and return the live URL."""
     try:
         result = subprocess.run(
-            ["vercel", "--yes", "--name", f"lead-{slug}", "--prod"],
-            cwd=str(dist_dir),
+            ["vercel", "deploy", "dist", "--yes", "--name", f"lead-{slug}", "--prod"],
+            cwd=str(demo_dir),
             capture_output=True,
             text=True,
             timeout=120,
@@ -210,7 +210,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         prompt=prompt,
         system=design_system,
         model="claude-sonnet-4-6",
-        max_tokens=16000,
+        max_tokens=20000,
         conn=conn,
         lead_id=lead_id,
         stage="demo_gen",
@@ -240,14 +240,19 @@ def generate_demo(lead: dict, conn) -> str | None:
         return None
 
     # Stage 7: Deploy dist/ to Vercel
-    dist_dir = demo_dir / "dist"
-    demo_url = _deploy_to_vercel(dist_dir, slug)
+    demo_url = _deploy_to_vercel(demo_dir, slug)
 
-    conn.execute(
-        "UPDATE leads SET demo_url=?, demo_generated_at=datetime('now'),"
-        " stage='ready_for_review', updated_at=datetime('now') WHERE id=?",
-        (demo_url, lead_id),
-    )
+    if demo_url:
+        conn.execute(
+            "UPDATE leads SET demo_url=?, demo_generated_at=datetime('now'),"
+            " stage='ready_for_review', updated_at=datetime('now') WHERE id=?",
+            (demo_url, lead_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE leads SET stage='demo_deploy_failed', updated_at=datetime('now') WHERE id=?",
+            (lead_id,),
+        )
     conn.commit()
 
     return demo_url

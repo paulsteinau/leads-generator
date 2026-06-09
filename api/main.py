@@ -2,13 +2,14 @@ import json
 import csv
 import io
 import os
+import secrets
 import sys
 import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from api.db import get_conn, init_db
 from api.models import (
     LeadSummary, LeadDetail, StatsResponse,
@@ -24,6 +25,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Endpoints that must remain public (Resend sends no auth header)
+_PUBLIC_PATHS = {"/webhook/resend", "/unsubscribe"}
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    secret = os.environ.get("API_SECRET", "")
+    if not secret or request.url.path in _PUBLIC_PATHS:
+        return await call_next(request)
+    auth = request.headers.get("Authorization", "")
+    token = auth.removeprefix("Bearer ").strip()
+    if not token or not secrets.compare_digest(token, secret):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    return await call_next(request)
 
 ROOT = Path(__file__).parent.parent
 LOG_FILE = ROOT / "pipeline.log"
@@ -465,7 +481,7 @@ def webhook_resend(body: ResendWebhookPayload):
         message_id = data.get("email_id") or data.get("id")
         if message_id:
             conn.execute(
-                "UPDATE leads SET status='replied', notes='Email geöffnet',"
+                "UPDATE leads SET notes='Email geöffnet',"
                 " updated_at=datetime('now') WHERE email_message_id=?",
                 (message_id,),
             )

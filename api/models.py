@@ -47,8 +47,16 @@ class LeadDetail(BaseModel):
     email_body_b: Optional[str] = None
     email_approved: bool = False
     email_variant: Optional[str] = None
+    email_subjects: Optional[str] = None
     status: str
     notes: Optional[str] = None
+    description: Optional[str] = None
+    industry_tag: Optional[str] = None
+    audit_score: Optional[int] = None
+    qualification: Optional[str] = None
+    demo_url: Optional[str] = None
+    demo_generated_at: Optional[str] = None
+    demo_screenshots: Optional[str] = None
     created_at: str
     updated_at: str
 

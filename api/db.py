@@ -87,6 +87,7 @@ CREATE INDEX IF NOT EXISTS idx_leads_qualification ON leads(qualification);
 CREATE INDEX IF NOT EXISTS idx_email_log_domain ON email_log(domain, sent_at);
 CREATE INDEX IF NOT EXISTS idx_suppressions_email ON suppressions(email);
 CREATE INDEX IF NOT EXISTS idx_suppressions_domain ON suppressions(domain);
+CREATE INDEX IF NOT EXISTS idx_leads_email_msg ON leads(email_message_id);
 """
 
 

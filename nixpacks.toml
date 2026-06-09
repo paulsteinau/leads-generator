@@ -3,5 +3,6 @@ providers = ["python", "node"]
 [phases.build]
 cmds = [
   "pip install -r requirements.txt",
-  "playwright install chromium --with-deps"
+  "playwright install chromium --with-deps",
+  "npm install -g vercel"
 ]
