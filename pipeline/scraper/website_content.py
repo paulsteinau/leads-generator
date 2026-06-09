@@ -125,31 +125,36 @@ async def scrape_website_content(url: str) -> dict:
             """)
             result["raw_text"] = raw or ""
 
-            # Crawl sub-pages for more content
-            subpage_keywords = ["ueber", "über", "about", "leistung", "service", "angebot", "team", "praxis", "kanzlei"]
+            # Crawl all internal subpages (skip legal/cookie pages)
+            SKIP_KEYWORDS = ["impressum", "datenschutz", "privacy", "cookie", "agb", "widerruf",
+                             "nutzungsbedingungen", "sitemap", "login", "cart", "warenkorb", "wp-admin"]
             all_links = await page.evaluate("""
                 () => [...document.querySelectorAll('a[href]')]
                     .map(a => a.href)
-                    .filter(h => h && !h.includes('#') && !h.includes('?'))
+                    .filter(h => h && !h.includes('#'))
             """)
-            from urllib.parse import urlparse
+            from urllib.parse import urlparse, urlunparse
             base = urlparse(url).netloc
-            subpages_visited = []
-            subpage_texts = []
+            seen_paths = set()
+            subpages_to_visit = []
             for link in all_links:
                 try:
                     parsed = urlparse(link)
                     if parsed.netloc != base:
                         continue
                     path_lower = parsed.path.lower()
-                    if any(kw in path_lower for kw in subpage_keywords) and link not in subpages_visited:
-                        subpages_visited.append(link)
-                        if len(subpages_visited) >= 3:
-                            break
+                    if any(kw in path_lower for kw in SKIP_KEYWORDS):
+                        continue
+                    clean = urlunparse(parsed._replace(query="", fragment=""))
+                    if clean == url or parsed.path in seen_paths or parsed.path == "/":
+                        continue
+                    seen_paths.add(parsed.path)
+                    subpages_to_visit.append(clean)
                 except Exception:
                     continue
 
-            for sub_url in subpages_visited:
+            subpage_texts = []
+            for sub_url in subpages_to_visit[:12]:  # max 12 subpages
                 try:
                     sub_page = await ctx.new_page()
                     await sub_page.goto(sub_url, timeout=15000, wait_until="domcontentloaded")
@@ -165,14 +170,14 @@ async def scrape_website_content(url: str) -> dict:
                             return walk(document.body).replace(/\\s+/g, ' ').trim().slice(0, 3000);
                         }
                     """)
-                    if sub_text:
-                        subpage_texts.append(f"[{sub_url}]:\n{sub_text}")
+                    if sub_text and len(sub_text.strip()) > 100:
+                        subpage_texts.append(f"[{sub_url}]:\n{sub_text.strip()}")
                     await sub_page.close()
                 except Exception:
                     pass
 
             if subpage_texts:
-                result["subpage_text"] = "\n\n".join(subpage_texts)
+                result["subpage_text"] = "\n\n---\n\n".join(subpage_texts)
 
             # Headings as tagline/description
             headings = await page.evaluate("""
