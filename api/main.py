@@ -490,6 +490,38 @@ def webhook_resend(body: ResendWebhookPayload):
     return {"ok": True}
 
 
+@app.post("/admin/import-lead")
+def import_lead(lead: dict):
+    conn = get_conn()
+    from pipeline.scraper.deduplicator import url_hash, is_duplicate
+    site = lead.get("website") or ""
+    key = site if site else f"nw-{lead.get('name','')}-{lead.get('address','')}"
+    if is_duplicate(conn, key):
+        return {"ok": False, "reason": "duplicate"}
+    h = url_hash(key)
+    conn.execute(
+        "INSERT INTO leads (url_hash,name,category,district,address,phone,email,website,"
+        "google_rating,google_reviews,has_instagram,has_facebook,has_linkedin,"
+        "pagespeed_mobile,pagespeed_desktop,has_ssl,cms_detected,has_cta,has_booking,"
+        "is_mobile_ready,seo_score,red_flags,lead_score,lead_tier,stage,status,"
+        "description,industry_tag,audit_score,qualification) VALUES "
+        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'scored','new',?,?,?,?)",
+        (h, lead.get("name"), lead.get("category"), lead.get("district"),
+         lead.get("address"), lead.get("phone"), lead.get("email"), site or None,
+         lead.get("google_rating"), lead.get("google_reviews"),
+         lead.get("has_instagram", 0), lead.get("has_facebook", 0), lead.get("has_linkedin", 0),
+         lead.get("pagespeed_mobile"), lead.get("pagespeed_desktop"),
+         lead.get("has_ssl"), lead.get("cms_detected"),
+         lead.get("has_cta"), lead.get("has_booking"), lead.get("is_mobile_ready"),
+         lead.get("seo_score"), lead.get("red_flags", "[]"),
+         lead.get("lead_score"), lead.get("lead_tier"),
+         lead.get("description"), lead.get("industry_tag"),
+         lead.get("audit_score"), lead.get("qualification")),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
 @app.post("/unsubscribe")
 def unsubscribe(body: UnsubscribeRequest):
     conn = get_conn()
