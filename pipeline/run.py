@@ -17,7 +17,6 @@ from pipeline.analyzer.website import analyze_pagespeed_batch
 from pipeline.analyzer.ux import analyze_ux_batch
 from pipeline.extractor.contact import extract_contacts_batch
 from pipeline.scorer.engine import score_lead
-from pipeline.emailgen.generator import generate_emails
 from tqdm import tqdm
 
 logging.basicConfig(
@@ -154,25 +153,6 @@ def run(dry_run: bool = False):
             (r["lead_score"], r["lead_tier"], lead["id"]),
         )
         c[r["lead_tier"]] = c.get(r["lead_tier"], 0) + 1
-    conn.commit()
-
-    # Stage 5: Generate emails
-    to_email = [dict(r) for r in conn.execute(
-        "SELECT * FROM leads WHERE stage='scored' AND lead_tier IN ('hot','warm')"
-    ).fetchall()]
-    for lead in tqdm(to_email, desc="Generating emails"):
-        emails = generate_emails(lead, conn)
-        if emails:
-            conn.execute(
-                "UPDATE leads SET email_subject=?,email_body_a=?,email_body_b=?,"
-                "stage='email_ready',updated_at=datetime('now') WHERE id=?",
-                (emails["subject"], emails["body_a"], emails["body_b"], lead["id"]),
-            )
-        else:
-            conn.execute(
-                "UPDATE leads SET stage='email_ready',updated_at=datetime('now') WHERE id=?",
-                (lead["id"],),
-            )
     conn.commit()
 
     log.info(

@@ -58,8 +58,8 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
         <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         <div>
-          <p className="text-sm font-medium text-blue-700">Demo wird erstellt...</p>
-          <p className="text-xs text-blue-500">Scraping Website + KI-Generierung + Vercel-Deploy</p>
+          <p className="text-sm font-medium text-blue-700">Phase 2 läuft — Demo + E-Mail werden erstellt...</p>
+          <p className="text-xs text-blue-500">Website scrapen → KI-Demo generieren → Vercel-Deploy → E-Mail schreiben</p>
         </div>
       </div>
     );
@@ -67,17 +67,17 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
 
   return (
     <div className="bg-white rounded-xl border p-5 space-y-3">
-      <h2 className="font-semibold text-xs text-gray-400 uppercase tracking-wide">Demo Website</h2>
+      <h2 className="font-semibold text-xs text-gray-400 uppercase tracking-wide">Phase 2</h2>
       <p className="text-sm text-gray-600">
-        Generiere eine kostenlose Demo-Website basierend auf dem bestehenden Webauftritt.
-        Wird automatisch deployed und kann direkt versendet werden.
+        Generiert eine individuelle Demo-Website + fertige Cold-Email für diesen Lead.
+        Dauert ca. 2–3 Minuten. Kosten: ~$0.40.
       </p>
       <button
         onClick={handleGenerate}
         disabled={loading}
         className="w-full px-4 py-2.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 font-medium transition-colors disabled:opacity-60"
       >
-        {loading ? "Starte..." : "✨ Demo generieren"}
+        {loading ? "Starte..." : "Phase 2 starten — Demo + E-Mail"}
       </button>
       {error && <p className="text-red-500 text-xs">{error}</p>}
       {stage === "demo_failed" && (

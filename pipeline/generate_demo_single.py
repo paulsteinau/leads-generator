@@ -16,6 +16,7 @@ load_dotenv()
 from api.db import get_conn
 from pipeline.generator.demo import generate_demo, _make_slug
 from pipeline.generator.screenshots import capture_demo_screenshots
+from pipeline.emailgen.generator import generate_emails
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -46,6 +47,24 @@ def run(lead_id: int):
             slug = _make_slug(lead)
             paths = capture_demo_screenshots(demo_url, slug, conn, lead_id)
             log.info(f"Screenshots: {len(paths)} captured")
+
+            # Generate email after demo is ready
+            lead = dict(conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone())
+            log.info("Generating email copy...")
+            emails = generate_emails(lead, conn)
+            if emails:
+                conn.execute(
+                    "UPDATE leads SET email_subject=?,email_body_a=?,email_body_b=?,"
+                    "stage='ready_for_review',updated_at=datetime('now') WHERE id=?",
+                    (emails["subject"], emails["body_a"], emails["body_b"], lead_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE leads SET stage='ready_for_review',updated_at=datetime('now') WHERE id=?",
+                    (lead_id,),
+                )
+            conn.commit()
+            log.info("Phase 2 complete — lead is ready for review")
         else:
             log.warning("Demo URL is None — Vercel deploy may have failed")
             conn.execute(
