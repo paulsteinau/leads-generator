@@ -1,4 +1,8 @@
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? "";
+
+const authHeaders = (): HeadersInit =>
+  SECRET ? { Authorization: `Bearer ${SECRET}` } : {};
 
 export interface LeadSummary {
   id: number;
@@ -77,78 +81,78 @@ export interface LogResponse {
 }
 
 export const getStats = (): Promise<Stats> =>
-  fetch(`${API}/stats`, { cache: "no-store" }).then((r) => r.json());
+  fetch(`${API}/stats`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
 export const getLeads = (p?: Record<string, string>): Promise<LeadSummary[]> =>
-  fetch(`${API}/leads${p ? "?" + new URLSearchParams(p) : ""}`, { cache: "no-store" }).then((r) =>
+  fetch(`${API}/leads${p ? "?" + new URLSearchParams(p) : ""}`, { cache: "no-store", headers: authHeaders() }).then((r) =>
     r.json()
   );
 
 export const getLead = (id: number): Promise<LeadDetail> =>
-  fetch(`${API}/leads/${id}`, { cache: "no-store" }).then((r) => r.json());
+  fetch(`${API}/leads/${id}`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
 export const approveEmail = (id: number, variant: "a" | "b") =>
   fetch(`${API}/leads/${id}/approve-email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ variant }),
   });
 
 export const updateStatus = (id: number, status: string) =>
   fetch(`${API}/leads/${id}/status`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ status }),
   });
 
 export const updateEmail = (id: number, email: string) =>
   fetch(`${API}/leads/${id}/email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ email }),
   });
 
 export const getPipelineStatus = (): Promise<PipelineStatus> =>
-  fetch(`${API}/pipeline/status`, { cache: "no-store" }).then((r) => r.json());
+  fetch(`${API}/pipeline/status`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
 export const startPipeline = (dryRun = false): Promise<{ ok: boolean; pid?: number; error?: string }> =>
-  fetch(`${API}/pipeline/start?dry_run=${dryRun}`, { method: "POST" }).then((r) => r.json());
+  fetch(`${API}/pipeline/start?dry_run=${dryRun}`, { method: "POST", headers: authHeaders() }).then((r) => r.json());
 
 export const stopPipeline = (): Promise<{ ok: boolean }> =>
-  fetch(`${API}/pipeline/stop`, { method: "POST" }).then((r) => r.json());
+  fetch(`${API}/pipeline/stop`, { method: "POST", headers: authHeaders() }).then((r) => r.json());
 
 export const getLogs = (lines = 100): Promise<LogResponse> =>
-  fetch(`${API}/pipeline/logs?lines=${lines}`, { cache: "no-store" }).then((r) => r.json());
+  fetch(`${API}/pipeline/logs?lines=${lines}`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
 export const getPendingReview = (): Promise<{ count: number }> =>
-  fetch(`${API}/leads/pending-review`, { cache: "no-store" }).then((r) => r.json());
+  fetch(`${API}/leads/pending-review`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
 export async function generateDemo(leadId: number): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`${API}/leads/${leadId}/generate-demo`, { method: "POST" });
+  const res = await fetch(`${API}/leads/${leadId}/generate-demo`, { method: "POST", headers: authHeaders() });
   return res.json();
 }
 
 export async function getDemoStatus(leadId: number): Promise<{
   stage: string; demo_url: string | null; has_screenshots: boolean; ready: boolean; failed: boolean;
 }> {
-  const res = await fetch(`${API}/leads/${leadId}/demo-status`);
+  const res = await fetch(`${API}/leads/${leadId}/demo-status`, { headers: authHeaders() });
   return res.json();
 }
 
 export async function approveLead(leadId: number): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`${API}/leads/${leadId}/approve`, { method: "POST" });
+  const res = await fetch(`${API}/leads/${leadId}/approve`, { method: "POST", headers: authHeaders() });
   return res.json();
 }
 
 export async function rejectLead(leadId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`${API}/leads/${leadId}/reject`, { method: "POST" });
+  const res = await fetch(`${API}/leads/${leadId}/reject`, { method: "POST", headers: authHeaders() });
   return res.json();
 }
 
 export async function editDemo(leadId: number, description: string): Promise<{ ok: boolean }> {
   const res = await fetch(`${API}/leads/${leadId}/edit-demo`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ description }),
   });
   return res.json();
