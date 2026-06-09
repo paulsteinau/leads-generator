@@ -149,6 +149,19 @@ export async function rejectLead(leadId: number): Promise<{ ok: boolean }> {
   return res.json();
 }
 
+export async function createManualLead(data: {
+  name: string; website?: string; category?: string; district?: string;
+  phone?: string; email?: string; lead_tier?: string; notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await fetch(`${API}/leads/manual`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (res.status === 409) return { ok: false, error: "Lead existiert bereits" };
+  return res.json();
+}
+
 export async function editDemo(leadId: number, description: string): Promise<{ ok: boolean }> {
   const res = await fetch(`${API}/leads/${leadId}/edit-demo`, {
     method: "POST",

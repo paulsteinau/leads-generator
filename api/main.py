@@ -15,7 +15,7 @@ from api.models import (
     LeadSummary, LeadDetail, StatsResponse,
     ApproveEmailRequest, UpdateStatusRequest, UpdateEmailRequest,
     PendingReviewLead, RegenerateRequest, EditDemoRequest,
-    ResendWebhookPayload, UnsubscribeRequest,
+    ResendWebhookPayload, UnsubscribeRequest, ManualLeadRequest,
 )
 
 app = FastAPI(title="Berlin Lead-Gen API")
@@ -166,6 +166,27 @@ def list_leads(
         )
         for r in conn.execute(q, p).fetchall()
     ]
+
+
+@app.post("/leads/manual")
+def create_manual_lead(body: ManualLeadRequest):
+    from pipeline.scraper.deduplicator import url_hash, is_duplicate
+    conn = get_conn()
+    site = body.website or ""
+    key = site if site else f"nw-{body.name}"
+    if is_duplicate(conn, key):
+        raise HTTPException(409, "Lead already exists")
+    score = {"hot": 80, "warm": 55, "low": 30}.get(body.lead_tier, 55)
+    conn.execute(
+        "INSERT INTO leads (url_hash,name,category,district,phone,email,website,"
+        "lead_score,lead_tier,stage,status,notes) VALUES (?,?,?,?,?,?,?,?,?,'scored','new',?)",
+        (url_hash(key), body.name, body.category, body.district,
+         body.phone, body.email, site or None,
+         score, body.lead_tier, body.notes),
+    )
+    conn.commit()
+    lead_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    return {"ok": True, "id": lead_id}
 
 
 @app.get("/leads/export")

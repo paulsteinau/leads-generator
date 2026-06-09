@@ -1,6 +1,7 @@
 import { getStats, getLeads } from "@/lib/api";
 import Link from "next/link";
 import DashboardShell from "./components/DashboardShell";
+import AddLeadButton from "./components/AddLeadButton";
 
 const TIER_STYLES: Record<string, { badge: string; initials: string }> = {
   hot:  { badge: "bg-red-50 text-red-700 ring-1 ring-red-200",    initials: "bg-red-500 text-white" },
@@ -60,16 +61,7 @@ export default async function Home({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href="http://localhost:8000/leads/export"
-              target="_blank"
-              className="flex items-center gap-1.5 px-3.5 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium shadow-sm"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2v8M5 7l3 3 3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              CSV Export
-            </a>
+            <AddLeadButton />
           </div>
         </div>
       </div>

@@ -70,6 +70,17 @@ class StatsResponse(BaseModel):
     replied: int
 
 
+class ManualLeadRequest(BaseModel):
+    name: str
+    website: Optional[str] = None
+    category: Optional[str] = None
+    district: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    lead_tier: str = "warm"
+    notes: Optional[str] = None
+
+
 class ApproveEmailRequest(BaseModel):
     variant: str  # "a" or "b"
 
