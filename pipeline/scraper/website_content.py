@@ -111,7 +111,7 @@ async def scrape_website_content(url: str) -> dict:
             # All visible text
             raw = await page.evaluate("""
                 () => {
-                    const skip = new Set(['script','style','noscript','svg','path']);
+                    const skip = new Set(['script','style','noscript','svg','path','header','nav','footer']);
                     function walk(el) {
                         if (skip.has(el.tagName?.toLowerCase())) return '';
                         if (el.nodeType === 3) return el.textContent;
@@ -120,10 +120,59 @@ async def scrape_website_content(url: str) -> dict:
                     return walk(document.body)
                         .replace(/\\s+/g, ' ')
                         .trim()
-                        .slice(0, 4000);
+                        .slice(0, 10000);
                 }
             """)
             result["raw_text"] = raw or ""
+
+            # Crawl sub-pages for more content
+            subpage_keywords = ["ueber", "über", "about", "leistung", "service", "angebot", "team", "praxis", "kanzlei"]
+            all_links = await page.evaluate("""
+                () => [...document.querySelectorAll('a[href]')]
+                    .map(a => a.href)
+                    .filter(h => h && !h.includes('#') && !h.includes('?'))
+            """)
+            from urllib.parse import urlparse
+            base = urlparse(url).netloc
+            subpages_visited = []
+            subpage_texts = []
+            for link in all_links:
+                try:
+                    parsed = urlparse(link)
+                    if parsed.netloc != base:
+                        continue
+                    path_lower = parsed.path.lower()
+                    if any(kw in path_lower for kw in subpage_keywords) and link not in subpages_visited:
+                        subpages_visited.append(link)
+                        if len(subpages_visited) >= 3:
+                            break
+                except Exception:
+                    continue
+
+            for sub_url in subpages_visited:
+                try:
+                    sub_page = await ctx.new_page()
+                    await sub_page.goto(sub_url, timeout=15000, wait_until="domcontentloaded")
+                    await asyncio.sleep(1)
+                    sub_text = await sub_page.evaluate("""
+                        () => {
+                            const skip = new Set(['script','style','noscript','svg','path','nav','footer']);
+                            function walk(el) {
+                                if (skip.has(el.tagName?.toLowerCase())) return '';
+                                if (el.nodeType === 3) return el.textContent;
+                                return [...el.childNodes].map(walk).join(' ');
+                            }
+                            return walk(document.body).replace(/\\s+/g, ' ').trim().slice(0, 3000);
+                        }
+                    """)
+                    if sub_text:
+                        subpage_texts.append(f"[{sub_url}]:\n{sub_text}")
+                    await sub_page.close()
+                except Exception:
+                    pass
+
+            if subpage_texts:
+                result["subpage_text"] = "\n\n".join(subpage_texts)
 
             # Headings as tagline/description
             headings = await page.evaluate("""

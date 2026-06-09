@@ -76,7 +76,10 @@ Services found:
 {services_text}
 Testimonials found:
 {testimonials_text}
-Raw text excerpt: {content.get('raw_text', '')[:1200]}
+Main page text:
+{content.get('raw_text', '')[:4000]}
+
+{f"Additional pages (Über uns / Leistungen / Team):{chr(10)}{content.get('subpage_text', '')[:4000]}" if content.get('subpage_text') else ""}
 
 {image_section}
 
