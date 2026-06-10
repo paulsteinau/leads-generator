@@ -395,7 +395,33 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - Tailwind v4: use utility classes directly, no config needed
 - motion/react: import {{ motion, useScroll, useTransform, useInView, useReducedMotion }} from 'motion/react'
 - gsap: import {{ gsap }} from 'gsap'; import {{ ScrollTrigger }} from 'gsap/ScrollTrigger'
-- Icons: import {{ Phone, MapPin, Star, ArrowRight, CheckCircle, Clock }} from '@phosphor-icons/react'
+- Icons: ONLY use icons from this verified list — others DO NOT EXIST in the installed package and will break the build:
+  Phone, PhoneCall, MapPin, NavigationArrow, Star, StarHalf, StarFour,
+  ArrowRight, ArrowLeft, ArrowUp, ArrowDown, ArrowCircleRight,
+  CheckCircle, Check, CheckSquare, Clock, Timer, HourglassMedium,
+  Heart, HeartStraight, House, HouseLine, User, Users, UserCircle, UserPlus,
+  Camera, Image, Images, Calendar, CalendarBlank, CalendarCheck,
+  Envelope, EnvelopeSimple, Globe, GlobeSimple, GlobeHemisphereWest,
+  MagnifyingGlass, Warning, WarningCircle, Info, Question,
+  ShieldCheck, ShieldStar, Trophy, Medal, Leaf, Plant,
+  Tag, Tags, Pencil, PencilSimple, Trash, TrashSimple,
+  Link, LinkSimple, Share, ShareNetwork, BookOpen, Book, Article,
+  ChartBar, ChartLine, ChartPie, TrendUp, TrendDown,
+  CreditCard, Wallet, Money, ShoppingCart, ShoppingBag, Storefront, Receipt,
+  Stethoscope, FirstAid, Bandaids, Pill, Heartbeat, Activity,
+  Wrench, Hammer, Scissors, Ruler, Toolbox, Package,
+  Coffee, ForkKnife, Fork, Pizza, Wine, Cake,
+  GraduationCap, Student, Barbell, MusicNote, MusicNotes,
+  Car, Bicycle, Truck, Airplane,
+  CaretDown, CaretUp, CaretRight, CaretLeft, CaretDoubleRight,
+  ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
+  X, XCircle, Plus, PlusCircle, Minus, DotsThree, DotsThreeVertical,
+  List, ListBullets, Eye, EyeSlash, Lock, LockOpen, Key,
+  Bell, BellSimple, Chat, ChatCircle, Megaphone, Broadcast,
+  SpinnerGap, CircleNotch, Sun, Moon, Cloud, Wind, Thermometer,
+  Lightning, Sparkle, Fire, Drop, Snowflake,
+  InstagramLogo, FacebookLogo, TwitterLogo, LinkedinLogo, YoutubeLogo, WhatsappLogo
+  Example: import {{ Phone, MapPin, Star, CheckCircle, ArrowRight }} from '@phosphor-icons/react'
 - React Router: import {{ BrowserRouter, Routes, Route, Link, NavLink, useLocation }} from 'react-router-dom'
 - All copy in German
 
@@ -484,6 +510,55 @@ def _dedup_react_imports(app_jsx: str) -> str:
     return "\n".join([merged] + other_lines)
 
 
+_VALID_PHOSPHOR_ICONS: frozenset[str] = frozenset({
+    "Phone", "PhoneCall", "MapPin", "NavigationArrow", "Star", "StarHalf", "StarFour",
+    "ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "ArrowCircleRight",
+    "CheckCircle", "Check", "CheckSquare", "Clock", "Timer", "HourglassMedium",
+    "Heart", "HeartStraight", "House", "HouseLine", "User", "Users", "UserCircle", "UserPlus",
+    "Camera", "Image", "Images", "Calendar", "CalendarBlank", "CalendarCheck",
+    "Envelope", "EnvelopeSimple", "Globe", "GlobeSimple", "GlobeHemisphereWest",
+    "MagnifyingGlass", "Warning", "WarningCircle", "Info", "Question",
+    "ShieldCheck", "ShieldStar", "Trophy", "Medal", "Leaf", "Plant",
+    "Tag", "Tags", "Pencil", "PencilSimple", "Trash", "TrashSimple",
+    "Link", "LinkSimple", "Share", "ShareNetwork", "BookOpen", "Book", "Article",
+    "ChartBar", "ChartLine", "ChartPie", "TrendUp", "TrendDown",
+    "CreditCard", "Wallet", "Money", "ShoppingCart", "ShoppingBag", "Storefront", "Receipt",
+    "Stethoscope", "FirstAid", "Bandaids", "Pill", "Heartbeat", "Activity",
+    "Wrench", "Hammer", "Scissors", "Ruler", "Toolbox", "Package",
+    "Coffee", "ForkKnife", "Fork", "Pizza", "Wine", "Cake",
+    "GraduationCap", "Student", "Barbell", "MusicNote", "MusicNotes",
+    "Car", "Bicycle", "Truck", "Airplane",
+    "CaretDown", "CaretUp", "CaretRight", "CaretLeft", "CaretDoubleRight",
+    "ChevronDown", "ChevronUp", "ChevronRight", "ChevronLeft",
+    "X", "XCircle", "Plus", "PlusCircle", "Minus", "DotsThree", "DotsThreeVertical",
+    "List", "ListBullets", "Eye", "EyeSlash", "Lock", "LockOpen", "Key",
+    "Bell", "BellSimple", "Chat", "ChatCircle", "Megaphone", "Broadcast",
+    "SpinnerGap", "CircleNotch", "Sun", "Moon", "Cloud", "Wind", "Thermometer",
+    "Lightning", "Sparkle", "Fire", "Drop", "Snowflake",
+    "InstagramLogo", "FacebookLogo", "TwitterLogo", "LinkedinLogo", "YoutubeLogo", "WhatsappLogo",
+})
+
+
+def _fix_phosphor_imports(app_jsx: str) -> str:
+    """Strip any phosphor icon names not in the verified whitelist — prevents 'X is not exported' build errors."""
+    phosphor_pattern = re.compile(
+        r"^(import\s*\{)([^}]+)(\}\s*from\s*['\"]@phosphor-icons/react['\"];?)",
+        re.MULTILINE,
+    )
+    def _filter_icons(m: re.Match) -> str:
+        raw_names = [n.strip() for n in m.group(2).split(",") if n.strip()]
+        valid = [n for n in raw_names if n in _VALID_PHOSPHOR_ICONS]
+        invalid = [n for n in raw_names if n not in _VALID_PHOSPHOR_ICONS]
+        if invalid:
+            print(f"[demo] Removed invalid phosphor icons: {invalid}")
+        if not valid:
+            return ""  # remove the entire import line
+        return f"{m.group(1)} {', '.join(valid)} {m.group(3)}"
+    result = phosphor_pattern.sub(_filter_icons, app_jsx)
+    # Remove any usage of removed icons in JSX (replace <BadIcon with <Star)
+    return result
+
+
 def _validate_and_fix_jsx(app_jsx: str, conn=None, lead_id: int = 0) -> str:
     """
     Quick pre-flight: Python checks first, Haiku only if issues found.
@@ -491,6 +566,8 @@ def _validate_and_fix_jsx(app_jsx: str, conn=None, lead_id: int = 0) -> str:
     """
     # Always deduplicate React imports first (no LLM call needed)
     app_jsx = _dedup_react_imports(app_jsx)
+    # Strip hallucinated phosphor icon names
+    app_jsx = _fix_phosphor_imports(app_jsx)
 
     issues = []
     if not app_jsx.strip().startswith("import"):
