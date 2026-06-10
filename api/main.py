@@ -133,23 +133,52 @@ def get_costs():
 
     # Per-model breakdown
     by_model_rows = conn.execute(
-        "SELECT model, SUM(cost_usd), COUNT(*) FROM cost_log GROUP BY model ORDER BY SUM(cost_usd) DESC"
+        "SELECT model, SUM(cost_usd), COUNT(*), SUM(input_tokens), SUM(output_tokens)"
+        " FROM cost_log GROUP BY model ORDER BY SUM(cost_usd) DESC"
     ).fetchall()
-    by_model = [{"model": r[0], "total_usd": round(r[1] or 0, 4), "calls": r[2]} for r in by_model_rows]
+    by_model = [
+        {"model": r[0], "total_usd": round(r[1] or 0, 4), "calls": r[2],
+         "input_tokens": r[3] or 0, "output_tokens": r[4] or 0}
+        for r in by_model_rows
+    ]
 
-    # Cost per demo: sum of demo_gen + design_brief + content_extraction per lead, then average
+    # Per-stage breakdown
+    by_stage_rows = conn.execute(
+        "SELECT stage, SUM(cost_usd), COUNT(*) FROM cost_log"
+        " WHERE stage IS NOT NULL GROUP BY stage ORDER BY SUM(cost_usd) DESC"
+    ).fetchall()
+    by_stage = [{"stage": r[0], "total_usd": round(r[1] or 0, 4), "calls": r[2]} for r in by_stage_rows]
+
+    # Cost per generation (lead_id + generation_num pair), then average
+    # This correctly handles multiple regenerations per lead
     demo_cost_row = conn.execute(
-        "SELECT AVG(lead_cost) FROM ("
-        "  SELECT lead_id, SUM(cost_usd) AS lead_cost FROM cost_log"
-        "  WHERE stage IN ('demo_gen','design_brief','content_extraction')"
-        "  GROUP BY lead_id"
+        "SELECT AVG(gen_cost) FROM ("
+        "  SELECT lead_id, generation_num, SUM(cost_usd) AS gen_cost FROM cost_log"
+        "  WHERE stage IN ('demo_gen','design_brief','content_extraction','demo_validation')"
+        "  AND generation_num IS NOT NULL"
+        "  GROUP BY lead_id, generation_num"
         ")"
     ).fetchone()
     cost_per_demo = round(demo_cost_row[0] or 0, 4)
 
+    # Total demo count = distinct (lead_id, generation_num) pairs
     demos_total = s(
-        "SELECT COUNT(DISTINCT lead_id) FROM cost_log WHERE stage='demo_gen'"
+        "SELECT COUNT(*) FROM ("
+        "  SELECT DISTINCT lead_id, generation_num FROM cost_log WHERE stage='demo_gen'"
+        ")"
     )
+
+    # Top 10 most expensive leads
+    top_leads_rows = conn.execute(
+        "SELECT l.id, l.name, l.category, SUM(c.cost_usd) AS total, COUNT(DISTINCT c.generation_num) AS gens"
+        " FROM cost_log c JOIN leads l ON c.lead_id = l.id"
+        " GROUP BY c.lead_id ORDER BY total DESC LIMIT 10"
+    ).fetchall()
+    top_leads = [
+        {"id": r[0], "name": r[1], "category": r[2],
+         "total_usd": round(r[3] or 0, 4), "generations": r[4]}
+        for r in top_leads_rows
+    ]
 
     return {
         "today_usd": round(s("SELECT SUM(cost_usd) FROM cost_log WHERE logged_at >= ?", today), 4),
@@ -158,9 +187,37 @@ def get_costs():
         "demos_total": demos_total,
         "cost_per_demo_avg": cost_per_demo,
         "by_model": by_model,
+        "by_stage": by_stage,
+        "top_leads": top_leads,
         "today_tokens_in": s("SELECT SUM(input_tokens) FROM cost_log WHERE logged_at >= ?", today),
         "today_tokens_out": s("SELECT SUM(output_tokens) FROM cost_log WHERE logged_at >= ?", today),
     }
+
+
+@app.get("/leads/{lead_id}/costs")
+def lead_costs(lead_id: int):
+    """Per-generation cost breakdown for a single lead."""
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT generation_num, stage, model, input_tokens, output_tokens,"
+        "       cache_read_tokens, cache_write_tokens, cost_usd, logged_at"
+        " FROM cost_log WHERE lead_id=? ORDER BY generation_num, logged_at",
+        (lead_id,),
+    ).fetchall()
+    total = sum(r[7] or 0 for r in rows)
+    by_gen: dict = {}
+    for r in rows:
+        gen = r[0] or 1
+        if gen not in by_gen:
+            by_gen[gen] = {"generation": gen, "total_usd": 0.0, "stages": []}
+        by_gen[gen]["total_usd"] = round(by_gen[gen]["total_usd"] + (r[7] or 0), 4)
+        by_gen[gen]["stages"].append({
+            "stage": r[1], "model": r[2],
+            "input_tokens": r[3], "output_tokens": r[4],
+            "cache_read_tokens": r[5], "cache_write_tokens": r[6],
+            "cost_usd": round(r[7] or 0, 4), "logged_at": r[8],
+        })
+    return {"lead_id": lead_id, "total_usd": round(total, 4), "generations": list(by_gen.values())}
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { getLead } from "@/lib/api";
+import { getLead, getLeadCosts } from "@/lib/api";
 import EmailPanel from "./EmailPanel";
 import ReviewPanel from "./ReviewPanel";
 import ScreenshotTabs from "./ScreenshotTabs";
@@ -56,7 +56,10 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 export default async function LeadPage({ params }: { params: { id: string } }) {
-  const lead = await getLead(Number(params.id));
+  const [lead, leadCosts] = await Promise.all([
+    getLead(Number(params.id)),
+    getLeadCosts(Number(params.id)),
+  ]);
 
   const tier = lead.lead_tier ?? "low";
   const tc = TIER_COLORS[tier] ?? TIER_COLORS.low;
@@ -269,6 +272,31 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           />
           {lead.stage === "ready_for_review" && <ReviewPanel lead={lead} />}
           <EmailPanel lead={lead} />
+
+          {leadCosts.total_usd > 0 && (
+            <SectionCard title="API-Kosten">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-gray-500">Gesamt</span>
+                <span className="font-mono font-bold text-sm text-amber-600">${leadCosts.total_usd.toFixed(4)}</span>
+              </div>
+              {leadCosts.generations.map((gen) => (
+                <div key={gen.generation} className="mb-2 last:mb-0">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-gray-400 font-medium">Generation {gen.generation}</span>
+                    <span className="font-mono text-gray-600">${gen.total_usd.toFixed(4)}</span>
+                  </div>
+                  <div className="space-y-0.5 pl-2 border-l border-gray-100">
+                    {gen.stages.map((s, i) => (
+                      <div key={i} className="flex justify-between text-[11px] text-gray-400">
+                        <span>{s.stage ?? "—"} <span className="text-gray-300">({s.model?.split("-").slice(-2).join("-") ?? "?"})</span></span>
+                        <span className="font-mono">${s.cost_usd.toFixed(4)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </SectionCard>
+          )}
         </div>
       </div>
     </DashboardShell>

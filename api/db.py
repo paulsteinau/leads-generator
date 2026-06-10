@@ -110,6 +110,10 @@ def _apply_migrations(conn) -> None:
         "ALTER TABLE leads ADD COLUMN email_subjects TEXT",
         "ALTER TABLE leads ADD COLUMN email_message_id TEXT",
         "ALTER TABLE leads ADD COLUMN demo_sub_stage TEXT",
+        # cost_log: accurate per-generation tracking + cache tokens
+        "ALTER TABLE cost_log ADD COLUMN cache_read_tokens INTEGER DEFAULT 0",
+        "ALTER TABLE cost_log ADD COLUMN cache_write_tokens INTEGER DEFAULT 0",
+        "ALTER TABLE cost_log ADD COLUMN generation_num INTEGER DEFAULT 1",
     ]
     for sql in migrations:
         try:

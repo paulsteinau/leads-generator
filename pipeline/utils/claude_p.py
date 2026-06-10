@@ -4,20 +4,26 @@ import anthropic
 
 _client: anthropic.Anthropic | None = None
 
+# Prices per token (not per million) — verify at console.anthropic.com/settings/plans
 INPUT_COST = {
     "claude-haiku-4-5-20251001": 0.80 / 1_000_000,
-    "claude-haiku-4-5": 0.80 / 1_000_000,
-    "claude-sonnet-4-5": 3.00 / 1_000_000,
-    "claude-sonnet-4-6": 3.00 / 1_000_000,
-    "claude-opus-4-8": 5.00 / 1_000_000,
+    "claude-haiku-4-5":          0.80 / 1_000_000,
+    "claude-sonnet-4-5":         3.00 / 1_000_000,
+    "claude-sonnet-4-6":         3.00 / 1_000_000,
+    "claude-opus-4-8":           15.00 / 1_000_000,
+    "claude-fable-5":            15.00 / 1_000_000,  # TODO: verify at console.anthropic.com
 }
 OUTPUT_COST = {
     "claude-haiku-4-5-20251001": 4.00 / 1_000_000,
-    "claude-haiku-4-5": 4.00 / 1_000_000,
-    "claude-sonnet-4-5": 15.00 / 1_000_000,
-    "claude-sonnet-4-6": 15.00 / 1_000_000,
-    "claude-opus-4-8": 25.00 / 1_000_000,
+    "claude-haiku-4-5":          4.00 / 1_000_000,
+    "claude-sonnet-4-5":         15.00 / 1_000_000,
+    "claude-sonnet-4-6":         15.00 / 1_000_000,
+    "claude-opus-4-8":           75.00 / 1_000_000,
+    "claude-fable-5":            75.00 / 1_000_000,  # TODO: verify at console.anthropic.com
 }
+# Cache read = 10% of input price; cache write = 125% of input price
+CACHE_READ_MULTIPLIER  = 0.10
+CACHE_WRITE_MULTIPLIER = 1.25
 
 
 def _get_client() -> anthropic.Anthropic:
@@ -39,6 +45,7 @@ def claude_p(
     image_media_type: str = "image/jpeg",
     images: list[tuple[str, str]] | None = None,
     thinking: dict | None = None,
+    generation_num: int = 1,
 ) -> str:
     """Call Claude and return the text response. Logs cost to DB if conn provided.
     Pass image_b64 for a single image, or images=[(b64, media_type), ...] for multiple.
@@ -83,15 +90,33 @@ def claude_p(
     )
 
     if conn and lead_id:
-        in_tok = resp.usage.input_tokens
-        out_tok = resp.usage.output_tokens
-        cost = (in_tok * INPUT_COST.get(model, 0.80 / 1_000_000)) + \
-               (out_tok * OUTPUT_COST.get(model, 4.00 / 1_000_000))
+        in_tok      = resp.usage.input_tokens
+        out_tok     = resp.usage.output_tokens
+        cache_read  = getattr(resp.usage, "cache_read_input_tokens", 0) or 0
+        cache_write = getattr(resp.usage, "cache_creation_input_tokens", 0) or 0
+
+        in_price  = INPUT_COST.get(model, 3.00 / 1_000_000)   # default: Sonnet, not Haiku
+        out_price = OUTPUT_COST.get(model, 15.00 / 1_000_000)
+
+        cost = (
+            in_tok      * in_price +
+            out_tok     * out_price +
+            cache_read  * in_price * CACHE_READ_MULTIPLIER +
+            cache_write * in_price * CACHE_WRITE_MULTIPLIER
+        )
         conn.execute(
-            "INSERT INTO cost_log (lead_id, model, stage, input_tokens, output_tokens, cost_usd)"
-            " VALUES (?,?,?,?,?,?)",
-            (lead_id, model, stage, in_tok, out_tok, round(cost, 6)),
+            "INSERT INTO cost_log"
+            " (lead_id, model, stage, input_tokens, output_tokens,"
+            "  cache_read_tokens, cache_write_tokens, cost_usd, generation_num)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (lead_id, model, stage, in_tok, out_tok,
+             cache_read, cache_write, round(cost, 6), generation_num),
         )
         conn.commit()
+        print(
+            f"[cost] lead={lead_id} gen={generation_num} stage={stage} model={model}"
+            f" in={in_tok} out={out_tok} cache_r={cache_read} cache_w={cache_write}"
+            f" → ${cost:.4f}"
+        )
 
     return text

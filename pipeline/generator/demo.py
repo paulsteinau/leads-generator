@@ -46,7 +46,7 @@ def _make_slug(lead: dict) -> str:
     return f"{name}-{lead['id']}"
 
 
-def _extract_structured_content(raw_text: str, subpage_text: str, category: str, conn, lead_id: int) -> dict:
+def _extract_structured_content(raw_text: str, subpage_text: str, category: str, conn, lead_id: int, generation_num: int = 1) -> dict:
     """Use Haiku to reliably extract services, about text, and key facts from scraped text."""
     combined = raw_text[:8000]
     if subpage_text:
@@ -71,6 +71,7 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
         conn=conn,
         lead_id=lead_id,
         stage="content_extraction",
+        generation_num=generation_num,
     )
 
     # Strip markdown fences if present
@@ -597,6 +598,13 @@ def generate_demo(lead: dict, conn) -> str | None:
     slug = _make_slug(lead)
     demo_dir = DATA_DIR / slug
 
+    # Compute generation number (how many times has this lead been generated before)
+    gen_row = conn.execute(
+        "SELECT COUNT(DISTINCT generation_num) FROM cost_log WHERE lead_id=? AND stage='demo_gen'",
+        (lead_id,),
+    ).fetchone()
+    generation_num = (gen_row[0] or 0) + 1
+
     # Stage 1: Scrape existing website
     _set_sub_stage(conn, lead_id, "scraping")
     content: dict = {}
@@ -635,6 +643,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         category=category,
         conn=conn,
         lead_id=lead_id,
+        generation_num=generation_num,
     )
 
     # Stage 5: Sonnet — design brief (Sonnet understands design intent better than Haiku)
@@ -647,6 +656,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         conn=conn,
         lead_id=lead_id,
         stage="design_brief",
+        generation_num=generation_num,
     )
 
     # Stage 6: Design system prompt (skills)
@@ -687,6 +697,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         lead_id=lead_id,
         stage="demo_gen",
         images=images if images else None,
+        generation_num=generation_num,
     )
 
     # Strip accidental markdown fences

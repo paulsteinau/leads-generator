@@ -112,6 +112,40 @@ export default async function Home({
             </div>
           ))}
         </div>
+
+        {/* Model + Stage breakdown */}
+        {(costs.by_model?.length > 0 || costs.by_stage?.length > 0) && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-300 mb-3">Kosten nach Modell</p>
+              <div className="space-y-2">
+                {costs.by_model?.map((m) => (
+                  <div key={m.model} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500 font-mono truncate max-w-[160px]">{m.model ?? "unbekannt"}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-300">{m.calls}x</span>
+                      <span className="font-mono font-semibold text-amber-600">${m.total_usd.toFixed(3)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-300 mb-3">Kosten nach Stage</p>
+              <div className="space-y-2">
+                {costs.by_stage?.map((s) => (
+                  <div key={s.stage} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">{s.stage}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-300">{s.calls}x</span>
+                      <span className="font-mono font-semibold text-amber-600">${s.total_usd.toFixed(3)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}

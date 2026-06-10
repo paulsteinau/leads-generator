@@ -82,7 +82,9 @@ export interface CostStats {
   total_usd: number;
   demos_total: number;
   cost_per_demo_avg: number;
-  by_model: { model: string; total_usd: number; calls: number }[];
+  by_model: { model: string; total_usd: number; calls: number; input_tokens: number; output_tokens: number }[];
+  by_stage: { stage: string; total_usd: number; calls: number }[];
+  top_leads: { id: number; name: string | null; category: string | null; total_usd: number; generations: number }[];
   today_tokens_in: number;
   today_tokens_out: number;
 }
@@ -187,5 +189,33 @@ export async function editDemo(leadId: number, description: string): Promise<{ o
 
 export async function resetDemo(leadId: number): Promise<{ ok: boolean }> {
   const res = await fetch(`${API}/leads/${leadId}/reset-demo`, { method: "POST", headers: authHeaders() });
+  return res.json();
+}
+
+export interface LeadCostStage {
+  stage: string | null;
+  model: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cost_usd: number;
+  logged_at: string;
+}
+
+export interface LeadCostGeneration {
+  generation: number;
+  total_usd: number;
+  stages: LeadCostStage[];
+}
+
+export interface LeadCosts {
+  lead_id: number;
+  total_usd: number;
+  generations: LeadCostGeneration[];
+}
+
+export async function getLeadCosts(leadId: number): Promise<LeadCosts> {
+  const res = await fetch(`${API}/leads/${leadId}/costs`, { cache: "no-store", headers: authHeaders() });
   return res.json();
 }
