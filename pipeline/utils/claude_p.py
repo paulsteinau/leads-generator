@@ -10,16 +10,16 @@ INPUT_COST = {
     "claude-haiku-4-5":          0.80 / 1_000_000,
     "claude-sonnet-4-5":         3.00 / 1_000_000,
     "claude-sonnet-4-6":         3.00 / 1_000_000,
-    "claude-opus-4-8":           15.00 / 1_000_000,
-    "claude-fable-5":            15.00 / 1_000_000,  # TODO: verify at console.anthropic.com
+    "claude-opus-4-8":           5.00 / 1_000_000,
+    "claude-fable-5":            10.00 / 1_000_000,  # $10/MTok input (2x Opus)
 }
 OUTPUT_COST = {
     "claude-haiku-4-5-20251001": 4.00 / 1_000_000,
     "claude-haiku-4-5":          4.00 / 1_000_000,
     "claude-sonnet-4-5":         15.00 / 1_000_000,
     "claude-sonnet-4-6":         15.00 / 1_000_000,
-    "claude-opus-4-8":           75.00 / 1_000_000,
-    "claude-fable-5":            75.00 / 1_000_000,  # TODO: verify at console.anthropic.com
+    "claude-opus-4-8":           25.00 / 1_000_000,
+    "claude-fable-5":            50.00 / 1_000_000,  # $50/MTok output (2x Opus)
 }
 # Cache read = 10% of input price; cache write = 125% of input price
 CACHE_READ_MULTIPLIER  = 0.10
