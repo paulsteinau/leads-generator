@@ -353,7 +353,12 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - gsap: import {{ gsap }} from 'gsap'; import {{ ScrollTrigger }} from 'gsap/ScrollTrigger'
 - Icons: import {{ Phone, MapPin, Star, ArrowRight, CheckCircle, Clock }} from '@phosphor-icons/react'
 - All copy in German
-- Sections in order: Nav, Hero, Leistungen, Über uns, Prozess (3–4 Schritte), Bewertungen, FAQ (3 Fragen), Kontakt, Footer
+- Required: sticky Nav (always first) + Hero (always second) + Footer (always last)
+- Everything between Nav and Footer: YOU decide the section structure and order based on what serves this specific business best
+  Use the scraped subpage content to determine which sections deserve their own dedicated area
+  A law firm might need: Rechtsgebiete, Team/Anwälte, Referenzen, Mandanten-Info, Kontakt
+  A restaurant might need: Speisekarte, Atmosphäre, Reservierung, Über uns, Events
+  Do NOT default to the same generic section order every time — adapt to the business
 - Each section must be fully implemented — no placeholders, no TODOs, no "// add more here" comments
 ## ANIMATION PHILOSOPHY
 Use motion/react and GSAP where it serves the design — not everywhere by default.
