@@ -3,6 +3,9 @@ providers = ["python", "node"]
 [phases.build]
 cmds = [
   "pip install -r requirements.txt",
-  "playwright install chromium --with-deps",
+  "PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright playwright install chromium --with-deps",
   "npm install -g vercel"
 ]
+
+[variables]
+PLAYWRIGHT_BROWSERS_PATH = "/app/ms-playwright"

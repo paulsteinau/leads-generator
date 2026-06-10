@@ -350,7 +350,8 @@ def _build_react(demo_dir: Path) -> bool:
     NPM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     try:
         result = subprocess.run(
-            ["npm", "install", "--cache", str(NPM_CACHE_DIR), "--prefer-offline"],
+            f"npm install --cache {NPM_CACHE_DIR} --prefer-offline",
+            shell=True,
             cwd=str(demo_dir),
             capture_output=True,
             text=True,
@@ -361,7 +362,8 @@ def _build_react(demo_dir: Path) -> bool:
             return False
 
         result = subprocess.run(
-            ["npm", "run", "build"],
+            "npm run build",
+            shell=True,
             cwd=str(demo_dir),
             capture_output=True,
             text=True,
@@ -380,7 +382,8 @@ def _build_react(demo_dir: Path) -> bool:
 def _deploy_to_vercel(demo_dir: Path, slug: str) -> str | None:
     try:
         result = subprocess.run(
-            ["vercel", "deploy", "dist", "--yes", "--name", f"lead-{slug}", "--prod"],
+            f"vercel deploy dist --yes --name lead-{slug} --prod",
+            shell=True,
             cwd=str(demo_dir),
             capture_output=True,
             text=True,
