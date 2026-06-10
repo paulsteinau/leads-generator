@@ -28,6 +28,10 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent /
 TEMPLATE_DIR = Path(__file__).parent.parent / "react-template"
 NPM_CACHE_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data")) / ".npm-cache"
 
+# Node binaries bundled into /app/node during build (survives multi-stage Docker copy)
+_NPM = "/app/node/bin/npm"
+_VERCEL = "/app/node/bin/vercel"
+
 
 def _set_sub_stage(conn, lead_id: int, sub_stage: str) -> None:
     conn.execute(
@@ -359,7 +363,7 @@ def _build_react(demo_dir: Path, conn, lead_id: int) -> bool:
     try:
         _set_sub_stage(conn, lead_id, "npm_install")
         result = subprocess.run(
-            f"npm install --cache {NPM_CACHE_DIR} --prefer-offline",
+            f"{_NPM} install --cache {NPM_CACHE_DIR} --prefer-offline",
             shell=True,
             cwd=str(demo_dir),
             capture_output=True,
@@ -372,7 +376,7 @@ def _build_react(demo_dir: Path, conn, lead_id: int) -> bool:
 
         _set_sub_stage(conn, lead_id, "npm_build")
         result = subprocess.run(
-            "npm run build",
+            f"{_NPM} run build",
             shell=True,
             cwd=str(demo_dir),
             capture_output=True,
@@ -393,7 +397,7 @@ def _deploy_to_vercel(demo_dir: Path, slug: str, conn, lead_id: int) -> str | No
     _set_sub_stage(conn, lead_id, "vercel_deploy")
     try:
         result = subprocess.run(
-            f"vercel deploy dist --yes --name lead-{slug} --prod",
+            f"{_VERCEL} deploy dist --yes --name lead-{slug} --prod",
             shell=True,
             cwd=str(demo_dir),
             capture_output=True,
