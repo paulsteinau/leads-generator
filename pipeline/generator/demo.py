@@ -55,7 +55,7 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
 
     raw = claude_p(
         prompt=prompt,
-        model="claude-haiku-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=1200,
         conn=conn,
         lead_id=lead_id,
