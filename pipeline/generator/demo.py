@@ -224,7 +224,9 @@ Google Rating: {lead.get('google_rating', '')} ({lead.get('google_reviews', '')}
 ## About This Business
 {about_text or content.get('description', '') or 'No about text found.'}
 
-## Existing Website Content (USE AS SOURCE MATERIAL — do not invent facts)
+## Existing Website Content — COPY THIS TEXT VERBATIM
+CRITICAL RULE: Every heading, service name, team member, location, testimonial, and body text must come DIRECTLY from the source below. Do NOT invent, paraphrase, or swap in generic text. If a name, city, or service appears in the source — use it exactly. Only invent content where the source has absolutely no equivalent.
+
 Current title: {content.get('title', '')}
 Current tagline: {content.get('tagline', '')}
 Navigation: {nav_text}
@@ -233,9 +235,9 @@ Services:
 Testimonials:
 {testimonials_text}
 Main page text:
-{content.get('raw_text', '')[:10000]}
+{content.get('raw_text', '')[:12000]}
 
-{f"Additional pages:{chr(10)}{content.get('subpage_text', '')[:8000]}" if content.get('subpage_text') else ""}
+{f"Subpages (USE ALL NAMES, LOCATIONS, SERVICES MENTIONED):{chr(10)}{content.get('subpage_text', '')[:12000]}" if content.get('subpage_text') else ""}
 
 {image_section}
 
