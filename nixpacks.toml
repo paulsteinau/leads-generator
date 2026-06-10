@@ -1,4 +1,7 @@
-providers = ["python", "node"]
+providers = ["python"]
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
 
 [phases.build]
 cmds = [
