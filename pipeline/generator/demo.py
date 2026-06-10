@@ -355,15 +355,12 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - All copy in German
 - Sections in order: Nav, Hero, Leistungen, Über uns, Prozess (3–4 Schritte), Bewertungen, FAQ (3 Fragen), Kontakt, Footer
 - Each section must be fully implemented — no placeholders, no TODOs, no "// add more here" comments
-## MANDATORY ANIMATIONS (implement ALL of these — no exceptions)
-- Hero section: motion/react entry animation — headline fades + slides up (opacity 0→1, y: 40→0) on load, 0.8s duration, ease [0.16,1,0.3,1]
-- Leistungen/Services section: stagger reveal — each card animates in with whileInView + staggerChildren 0.08s
-- Über uns section: scroll-triggered split reveal — text slides in from left, image from right using whileInView
-- Bewertungen/Testimonials: horizontal scroll or staggered fade-up with viewport: {{ once: true, amount: 0.2 }}
-- Nav: floating glass pill (backdrop-blur-xl, rounded-full, detached from top), sticky with scroll-aware opacity change
-- CTA buttons: whileTap={{ scale: 0.97 }} + whileHover={{ scale: 1.02 }} on ALL primary buttons
-- Kontakt form: inputs have focus ring animation (ring-offset, scale transition)
-- GSAP ScrollTrigger: use for AT LEAST ONE section — either sticky stack, parallax, or horizontal pan
+## ANIMATION PHILOSOPHY
+Use motion/react and GSAP where it serves the design — not everywhere by default.
+Before adding any animation, ask: what does this communicate? (hierarchy, storytelling, feedback, state change)
+Minimum: at least 4 meaningful animations chosen based on what fits THIS specific design.
+Available tools: motion/react whileInView stagger, GSAP ScrollTrigger (sticky stack, parallax, horizontal pan), spring physics on interactive elements, clip-path reveals, blur-fade transitions.
+Every CTA button must have whileTap={{ scale: 0.97 }}. Beyond that: your judgment.
 
 ## DESIGN UNIQUENESS RULE
 This website must look VISUALLY DISTINCT from any other website in the same category.
@@ -577,7 +574,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     app_jsx = claude_p(
         prompt=prompt,
         system=design_system,
-        model="claude-opus-4-8",
+        model="claude-fable-5",
         max_tokens=20000,
         conn=conn,
         lead_id=lead_id,
