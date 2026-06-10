@@ -31,6 +31,8 @@ NPM_CACHE_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.par
 # Node binaries bundled into /app/node during build (survives multi-stage Docker copy)
 _NPM = "/app/node/bin/npm"
 _VERCEL = "/app/node/bin/vercel"
+# npm scripts use #!/usr/bin/env node — node must be on PATH
+_NODE_ENV = {**os.environ, "PATH": f"/app/node/bin:{os.environ.get('PATH', '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')}"}
 
 
 def _set_sub_stage(conn, lead_id: int, sub_stage: str) -> None:
@@ -360,11 +362,14 @@ def _setup_demo_dir(demo_dir: Path) -> None:
 
 def _build_react(demo_dir: Path, conn, lead_id: int) -> bool:
     NPM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    npm_exists = os.path.exists(_NPM)
+    print(f"[demo] node check: npm={npm_exists} vercel={os.path.exists(_VERCEL)} PATH_prefix=/app/node/bin")
     try:
         _set_sub_stage(conn, lead_id, "npm_install")
         result = subprocess.run(
             f"{_NPM} install --cache {NPM_CACHE_DIR} --prefer-offline",
             shell=True,
+            env=_NODE_ENV,
             cwd=str(demo_dir),
             capture_output=True,
             text=True,
@@ -378,6 +383,7 @@ def _build_react(demo_dir: Path, conn, lead_id: int) -> bool:
         result = subprocess.run(
             f"{_NPM} run build",
             shell=True,
+            env=_NODE_ENV,
             cwd=str(demo_dir),
             capture_output=True,
             text=True,
@@ -399,6 +405,7 @@ def _deploy_to_vercel(demo_dir: Path, slug: str, conn, lead_id: int) -> str | No
         result = subprocess.run(
             f"{_VERCEL} deploy dist --yes --name lead-{slug} --prod",
             shell=True,
+            env=_NODE_ENV,
             cwd=str(demo_dir),
             capture_output=True,
             text=True,
