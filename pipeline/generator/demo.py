@@ -85,7 +85,32 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
         return {}
 
 
-def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict) -> str:
+# Archetype pools for forced per-generation variance
+_VIBE_ARCHETYPES = [
+    "Ethereal Glass: deep OLED near-black (#050505), radial mesh gradients with subtle glowing accent orbs, heavy backdrop-blur cards with white/10 hairlines, wide geometric Grotesk typography",
+    "Editorial Luxury: warm off-white (#FDFBF7) or deep espresso background, high-contrast display typography, subtle CSS noise/film-grain overlay (opacity 0.03), physical paper feel, editorial spacing",
+    "Soft Structuralism: silver-grey or pure white background, massive bold Grotesk headlines, airy floating components with highly diffused ambient shadows, minimalist precision",
+    "Dark Industrial: zinc-950 or slate-900 base, single saturated accent (electric blue OR emerald OR hot orange), mono typeface accents, sharp-edged precision, data-forward density",
+    "Forest Premium: deep green + bone + amber accent, natural textures, generous whitespace, trustworthy warmth without the cliché beige-brass palette",
+]
+_LAYOUT_ARCHETYPES = [
+    "Asymmetrical Bento: masonry-like CSS Grid of varying card sizes (col-span-8 next to stacked col-span-4), bento cells with real visual variation (images, gradients, not white-on-white)",
+    "Z-Axis Cascade: elements stacked like physical cards, slightly overlapping with -2deg/3deg rotation, depth-of-field layers, scroll reveals that unfurl the stack",
+    "Editorial Split: massive typography on the left half, interactive image pills or staggered cards on the right, generous negative space, editorial rhythm",
+    "Sticky-Stack Scroll: hero pinned, sections stack and replace each other on scroll via GSAP ScrollTrigger, cinematic vertical storytelling",
+    "Horizontal Magazine: full-width alternating sections that each use a completely different layout family (no zigzag repetition), section-by-section compositional variety",
+]
+_HERO_PARADIGMS = [
+    "Asymmetric Split Hero — text on one side, hero image on the other, bold headline left-aligned",
+    "Scroll-Pinned Hero — hero stays pinned while content slides up behind it (GSAP pin)",
+    "Editorial Manifesto Hero — large kinetic type, no asset, almost-poster feel",
+    "Full-Bleed Photo Hero — edge-to-edge image, text overlay with scrim, bold single headline",
+    "Curtain-Reveal Hero — parts animate in on load like a curtain parting",
+]
+_MOTION_LEVELS = [6, 7, 7, 8]  # weighted toward higher motion
+
+
+def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None) -> str:
     css_summary = ""
     if ref_css.get("computed"):
         parts = []
@@ -95,18 +120,49 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict) -> s
         if parts:
             css_summary = "Extracted from reference site:\n" + "\n".join(parts[:5])
 
+    # Business-specific context for a unique brief per lead
+    services_preview = ""
+    if structured:
+        svcs = structured.get("services") or []
+        if svcs:
+            services_preview = "Key services: " + ", ".join(svcs[:4])
+
+    about_preview = ""
+    if structured:
+        about = (structured.get("about") or "").strip()
+        if about:
+            about_preview = f"About: {about[:200]}"
+
+    rating_info = ""
+    if lead.get("google_rating"):
+        rating_info = f"Google rating: {lead['google_rating']} ({lead.get('google_reviews', '')} reviews)"
+
+    # Randomly select archetypes to force visual variance between generations
+    vibe = random.choice(_VIBE_ARCHETYPES)
+    layout = random.choice(_LAYOUT_ARCHETYPES)
+    hero = random.choice(_HERO_PARADIGMS)
+    motion = random.choice(_MOTION_LEVELS)
+
     return (
-        f"You are a senior UI/UX designer. Create a concise design brief for a premium German "
-        f"{lead.get('category', '')} website.\n\n"
-        f"Category archetype:\n{inspiration}\n\n"
+        f"You are a senior UI/UX designer. Create a concise, BUSINESS-SPECIFIC design brief for:\n\n"
+        f"Business: {lead.get('name', '')} ({lead.get('category', '')}) in {lead.get('district', 'Berlin')}\n"
+        f"{services_preview}\n{about_preview}\n{rating_info}\n\n"
+        f"Category archetype (inspiration only, do NOT copy directly):\n{inspiration}\n\n"
         f"{css_summary}\n\n"
-        f"Write a design brief with EXACTLY these fields (be concrete, no vague words):\n"
+        f"FORCED DESIGN DIRECTION for this generation (implement exactly):\n"
+        f"- Vibe archetype: {vibe}\n"
+        f"- Layout archetype: {layout}\n"
+        f"- Hero paradigm: {hero}\n"
+        f"- Motion intensity: {motion}/10 (implement scroll reveals + hover physics accordingly)\n\n"
+        f"Write a design brief with EXACTLY these fields (concrete values, no vague words):\n"
         f"- Color palette: primary hex, secondary hex, accent hex, background hex, text hex\n"
+        f"  (Choose colors that fit THIS specific business's personality, NOT the generic {lead.get('category','')} cliché)\n"
         f"- Font pairing: heading font name (Google Fonts), body font name (Google Fonts)\n"
-        f"- Hero layout: one of [full-bleed-photo, split-asymmetric, centered-minimal, editorial-grid]\n"
-        f"- Visual mood: exactly 3 adjectives\n"
-        f"- Standout element: one specific CSS/animation detail that elevates the design\n\n"
-        f"Max 120 words. These values go directly into React/CSS code."
+        f"  (Banned as defaults: Inter, Roboto, Arial. Use Geist, Outfit, Cabinet Grotesk, Satoshi, Plus Jakarta Sans, etc.)\n"
+        f"- Hero layout: implement the hero paradigm above\n"
+        f"- Visual mood: exactly 3 adjectives specific to this business\n"
+        f"- Standout element: one specific scroll animation or micro-interaction detail that makes this site memorable\n\n"
+        f"Max 150 words. These values go directly into React/CSS code."
     )
 
 
@@ -299,8 +355,24 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - All copy in German
 - Sections in order: Nav, Hero, Leistungen, Über uns, Prozess (3–4 Schritte), Bewertungen, FAQ (3 Fragen), Kontakt, Footer
 - Each section must be fully implemented — no placeholders, no TODOs, no "// add more here" comments
-- Add subtle scroll animations (motion/react useInView) on at least 3 sections
-- Nav must have a working mobile hamburger menu with animated open/close
+## MANDATORY ANIMATIONS (implement ALL of these — no exceptions)
+- Hero section: motion/react entry animation — headline fades + slides up (opacity 0→1, y: 40→0) on load, 0.8s duration, ease [0.16,1,0.3,1]
+- Leistungen/Services section: stagger reveal — each card animates in with whileInView + staggerChildren 0.08s
+- Über uns section: scroll-triggered split reveal — text slides in from left, image from right using whileInView
+- Bewertungen/Testimonials: horizontal scroll or staggered fade-up with viewport: {{ once: true, amount: 0.2 }}
+- Nav: floating glass pill (backdrop-blur-xl, rounded-full, detached from top), sticky with scroll-aware opacity change
+- CTA buttons: whileTap={{ scale: 0.97 }} + whileHover={{ scale: 1.02 }} on ALL primary buttons
+- Kontakt form: inputs have focus ring animation (ring-offset, scale transition)
+- GSAP ScrollTrigger: use for AT LEAST ONE section — either sticky stack, parallax, or horizontal pan
+
+## DESIGN UNIQUENESS RULE
+This website must look VISUALLY DISTINCT from any other website in the same category.
+- Do NOT use the generic 3-column equal feature cards layout
+- Do NOT use the AI-purple gradient default
+- Implement the specific vibe and layout archetype from the Design Brief above
+- Every section must use a different layout family (no same layout repeated)
+
+- Nav must have a working mobile hamburger menu with animated open/close (lines morph to X)
 - Hero must have a clear primary CTA button
 - Kontakt section must show phone, email, address, and a styled contact form
 - COMPLETENESS IS MANDATORY: generate the full implementation, minimum 900 lines of JSX
@@ -465,7 +537,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     _set_sub_stage(conn, lead_id, "design_brief")
     print(f"[demo] Generating design brief for lead {lead_id}...")
     design_brief = claude_p(
-        prompt=_build_design_brief_prompt(lead, inspiration, ref_css),
+        prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured),
         model="claude-sonnet-4-6",
         max_tokens=600,
         conn=conn,
