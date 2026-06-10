@@ -20,6 +20,8 @@ interface CostStats {
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const _secret = process.env.NEXT_PUBLIC_API_SECRET ?? "";
+const authHeaders = () => ({ Authorization: `Bearer ${_secret}` });
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -32,9 +34,9 @@ export default function Sidebar() {
     const fetchStats = async () => {
       try {
         const [s, p, c] = await Promise.all([
-          fetch(`${API}/stats`, { cache: "no-store" }).then((r) => r.json()),
-          fetch(`${API}/pipeline/status`, { cache: "no-store" }).then((r) => r.json()),
-          fetch(`${API}/costs`, { cache: "no-store" }).then((r) => r.json()),
+          fetch(`${API}/stats`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json()),
+          fetch(`${API}/pipeline/status`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json()),
+          fetch(`${API}/costs`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json()),
         ]);
         setStats(s);
         setRunning(p.running ?? false);

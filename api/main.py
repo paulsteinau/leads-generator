@@ -32,6 +32,9 @@ _PUBLIC_PATHS = {"/webhook/resend", "/unsubscribe"}
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
+    # CORS preflight must pass through so the browser gets Allow headers
+    if request.method == "OPTIONS":
+        return await call_next(request)
     secret = os.environ.get("API_SECRET", "")
     if not secret or request.url.path in _PUBLIC_PATHS:
         return await call_next(request)
