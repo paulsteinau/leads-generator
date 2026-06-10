@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { generateDemo, getDemoStatus } from "@/lib/api";
+import { generateDemo, getDemoStatus, resetDemo } from "@/lib/api";
 
 const SUB_STAGE_CONFIG: Record<string, { pct: number; label: string }> = {
   scraping:          { pct: 5,  label: "Website wird gescraped..." },
@@ -98,7 +98,30 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
     setLoading(false);
   };
 
-  if (demoUrl || DONE_STAGES.has(stage)) return null;
+  const handleReset = async () => {
+    if (!confirm("Demo löschen und neu generieren?")) return;
+    setLoading(true);
+    setError(null);
+    await resetDemo(leadId);
+    setDemoUrl(null);
+    setStage("scored");
+    setLoading(false);
+  };
+
+  if ((demoUrl || DONE_STAGES.has(stage)) && !loading) {
+    return (
+      <div className="bg-white rounded-xl border p-4 flex items-center justify-between gap-3">
+        <p className="text-xs text-gray-400">Demo vorhanden</p>
+        <button
+          onClick={handleReset}
+          disabled={loading}
+          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-500 rounded-lg font-medium transition-colors disabled:opacity-60"
+        >
+          {loading ? "..." : "Neu generieren"}
+        </button>
+      </div>
+    );
+  }
 
   if (isPolling || stage === "generating_demo") {
     const cfg = subStage ? SUB_STAGE_CONFIG[subStage] : null;

@@ -184,3 +184,8 @@ export async function editDemo(leadId: number, description: string): Promise<{ o
   });
   return res.json();
 }
+
+export async function resetDemo(leadId: number): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/leads/${leadId}/reset-demo`, { method: "POST", headers: authHeaders() });
+  return res.json();
+}

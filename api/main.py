@@ -475,6 +475,21 @@ def edit_demo(lead_id: int, body: EditDemoRequest):
 
 # ── Demo Generation ───────────────────────────────────────────────────────────
 
+@app.post("/leads/{lead_id}/reset-demo")
+def reset_demo(lead_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT id FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    conn.execute(
+        "UPDATE leads SET stage='scored', demo_url=NULL, demo_generated_at=NULL,"
+        " demo_screenshots=NULL, updated_at=datetime('now') WHERE id=?",
+        (lead_id,),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
 @app.post("/leads/{lead_id}/generate-demo")
 def trigger_generate_demo(lead_id: int):
     conn = get_conn()
