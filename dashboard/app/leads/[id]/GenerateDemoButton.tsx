@@ -139,12 +139,9 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
         disabled={loading}
         className="w-full px-4 py-2.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 font-medium transition-colors disabled:opacity-60"
       >
-        {loading ? "Starte..." : "Phase 2 starten — Demo + E-Mail"}
+        {loading ? "Starte..." : FAILED_STAGES.has(stage) ? "Erneut versuchen — Demo + E-Mail" : "Phase 2 starten — Demo + E-Mail"}
       </button>
       {error && <p className="text-red-500 text-xs">{error}</p>}
-      {FAILED_STAGES.has(stage) && (
-        <p className="text-orange-500 text-xs">Letzter Versuch fehlgeschlagen. Erneut versuchen?</p>
-      )}
     </div>
   );
 }
