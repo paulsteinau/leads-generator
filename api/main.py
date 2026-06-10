@@ -61,6 +61,20 @@ def startup():
     if affected:
         print(f"[startup] Reset {affected} zombie generating_demo lead(s) to demo_build_failed")
 
+    # Diagnose Playwright browser installation
+    pw_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "(not set)")
+    print(f"[startup] PLAYWRIGHT_BROWSERS_PATH={pw_path}")
+    from pathlib import Path as _P
+    pw_dir = _P(pw_path) if pw_path != "(not set)" else None
+    if pw_dir and pw_dir.exists():
+        entries = list(pw_dir.iterdir())
+        print(f"[startup] playwright dir exists, contents: {[e.name for e in entries]}")
+        # Find chromium executable
+        chrome_bins = list(pw_dir.rglob("chrome")) + list(pw_dir.rglob("chromium"))
+        print(f"[startup] chromium binaries found: {chrome_bins[:3]}")
+    else:
+        print(f"[startup] playwright dir NOT FOUND at {pw_path}")
+
 
 # ── Pipeline control ──────────────────────────────────────────────────────────
 

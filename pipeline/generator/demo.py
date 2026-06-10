@@ -426,6 +426,10 @@ def generate_demo(lead: dict, conn) -> str | None:
     content: dict = {}
     if lead.get("website"):
         content = asyncio.run(scrape_website_content(lead["website"]))
+        if content.get("error"):
+            print(f"[demo] scraping error for lead {lead_id}: {content['error']}")
+        else:
+            print(f"[demo] scraped lead {lead_id}: {len(content.get('raw_text',''))} chars, {len(content.get('subpage_text',''))} subpage chars, {len(content.get('images',[]))} images")
         (DATA_DIR / slug).mkdir(parents=True, exist_ok=True)
         (DATA_DIR / slug / "content.json").write_text(
             json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8"

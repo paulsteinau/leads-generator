@@ -270,5 +270,6 @@ async def scrape_website_content(url: str) -> dict:
             await browser.close()
     except Exception as e:
         result["error"] = str(e)
+        print(f"[scraper] FAILED for {url}: {e}")
 
     return result
