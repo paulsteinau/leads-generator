@@ -383,7 +383,9 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 ## Output Rules
 - Output ONLY valid JSX starting with import statements
 - No markdown fences, no explanation text
-- File must start with: import React from 'react'
+- React is auto-imported by Vite — do NOT write a bare `import React from 'react'`
+  If you need hooks, use ONLY: import { useState, useEffect, useRef, useCallback } from 'react' (once, combined)
+  Never write both `import React from 'react'` AND `import { useState } from 'react'` — that causes a build error
 - All components defined in one file, exported as: export default function App()
 - Google Fonts: import via a <style> tag rendered in the component, e.g.:
   const FontImport = () => (
@@ -435,11 +437,60 @@ This website must look VISUALLY DISTINCT from any other website in the same cate
 """.strip()
 
 
+def _dedup_react_imports(app_jsx: str) -> str:
+    """Merge duplicate React imports — prevents 'React already declared' build error."""
+    lines = app_jsx.split("\n")
+    react_imports: list[str] = []
+    other_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if re.match(r"^import\s+React", stripped) or re.match(r'^import\s*\{[^}]*\}\s*from\s*["\']react["\']', stripped):
+            react_imports.append(stripped)
+        else:
+            other_lines.append(line)
+    if len(react_imports) <= 1:
+        return app_jsx
+
+    # Merge: collect all named imports + decide if default React is needed
+    named: set[str] = set()
+    needs_default = False
+    for imp in react_imports:
+        # `import React from 'react'`
+        if re.match(r"^import React from", imp):
+            needs_default = True
+        # `import React, { useState } from 'react'`
+        m = re.match(r"^import React,\s*\{([^}]+)\}", imp)
+        if m:
+            needs_default = True
+            for n in m.group(1).split(","):
+                named.add(n.strip())
+        # `import { useState, useEffect } from 'react'`
+        m = re.match(r"^import\s*\{([^}]+)\}\s*from\s*['\"]react['\"]", imp)
+        if m:
+            for n in m.group(1).split(","):
+                named.add(n.strip())
+
+    if needs_default and named:
+        merged = f"import React, {{ {', '.join(sorted(named))} }} from 'react'"
+    elif needs_default:
+        merged = "import React from 'react'"
+    elif named:
+        merged = f"import {{ {', '.join(sorted(named))} }} from 'react'"
+    else:
+        merged = "import React from 'react'"
+
+    print(f"[demo] Merged {len(react_imports)} React imports → {merged}")
+    return "\n".join([merged] + other_lines)
+
+
 def _validate_and_fix_jsx(app_jsx: str, conn=None, lead_id: int = 0) -> str:
     """
     Quick pre-flight: Python checks first, Haiku only if issues found.
     Fixes the most common Vite build failure causes.
     """
+    # Always deduplicate React imports first (no LLM call needed)
+    app_jsx = _dedup_react_imports(app_jsx)
+
     issues = []
     if not app_jsx.strip().startswith("import"):
         issues.append("File does not start with import statements")
@@ -447,8 +498,6 @@ def _validate_and_fix_jsx(app_jsx: str, conn=None, lead_id: int = 0) -> str:
         issues.append("Missing: export default function App()")
     if app_jsx.count(' class="') > 0:
         issues.append(f"Found {app_jsx.count(' class=\"')} instances of class= (must be className=)")
-    if "import React from 'react'" not in app_jsx and 'import React from "react"' not in app_jsx:
-        issues.append("Missing: import React from 'react'")
 
     if not issues:
         return app_jsx
@@ -460,7 +509,7 @@ def _validate_and_fix_jsx(app_jsx: str, conn=None, lead_id: int = 0) -> str:
         f"Rules:\n"
         f"- Return ONLY valid JSX, no markdown fences, no explanation\n"
         f"- Fix class= → className=\n"
-        f"- Ensure import React from 'react' is first line\n"
+        f"- React hooks: use `import {{ useState, useEffect }} from 'react'` (no duplicate React imports)\n"
         f"- Ensure export default function App() is present\n\n"
         f"File:\n{app_jsx}"
     )
