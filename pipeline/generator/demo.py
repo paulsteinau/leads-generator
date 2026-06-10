@@ -18,6 +18,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import httpx
+
 from pipeline.scraper.website_content import scrape_website_content
 from pipeline.researcher.inspiration import get_inspiration_notes, SCHEMA_TYPES
 from pipeline.researcher.reference_screenshots import get_all_reference_data
@@ -28,11 +30,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent /
 TEMPLATE_DIR = Path(__file__).parent.parent / "react-template"
 NPM_CACHE_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data")) / ".npm-cache"
 
-# Node binaries bundled into /app/node during build (survives multi-stage Docker copy)
-_NPM = "/app/node/bin/npm"
-_VERCEL = "/app/node/bin/vercel"
-# npm scripts use #!/usr/bin/env node — node must be on PATH
-_NODE_ENV = {**os.environ, "PATH": f"/app/node/bin:{os.environ.get('PATH', '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')}"}
 
 
 def _set_sub_stage(conn, lead_id: int, sub_stage: str) -> None:
@@ -360,68 +357,56 @@ def _setup_demo_dir(demo_dir: Path) -> None:
     (demo_dir / "src").mkdir(exist_ok=True)
 
 
-def _build_react(demo_dir: Path, conn, lead_id: int) -> bool:
-    NPM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    npm_exists = os.path.exists(_NPM)
-    print(f"[demo] node check: npm={npm_exists} vercel={os.path.exists(_VERCEL)} PATH_prefix=/app/node/bin")
+def _deploy_via_vercel_api(demo_dir: Path, slug: str, conn, lead_id: int) -> str | None:
+    """Upload React source to Vercel API — Vercel builds in their cloud, no local npm needed."""
+    token = os.environ.get("VERCEL_TOKEN", "")
+    if not token:
+        print("[demo] VERCEL_TOKEN not set")
+        return None
+
+    _set_sub_stage(conn, lead_id, "vercel_deploy")
+
+    # Collect all source files (skip node_modules / dist if they exist)
+    files = []
+    skip = {"node_modules", "dist", ".git"}
+    for path in demo_dir.rglob("*"):
+        if path.is_file() and not any(p in skip for p in path.parts):
+            rel = path.relative_to(demo_dir).as_posix()
+            try:
+                files.append({"file": rel, "data": path.read_text(encoding="utf-8")})
+            except UnicodeDecodeError:
+                import base64
+                files.append({"file": rel, "data": base64.b64encode(path.read_bytes()).decode(), "encoding": "base64"})
+
+    payload = {
+        "name": f"lead-{slug}",
+        "files": files,
+        "projectSettings": {
+            "buildCommand": "npm run build",
+            "outputDirectory": "dist",
+            "installCommand": "npm install",
+            "framework": None,
+        },
+        "target": "production",
+    }
+
     try:
-        _set_sub_stage(conn, lead_id, "npm_install")
-        result = subprocess.run(
-            f"{_NPM} install --cache {NPM_CACHE_DIR} --prefer-offline",
-            shell=True,
-            env=_NODE_ENV,
-            cwd=str(demo_dir),
-            capture_output=True,
-            text=True,
+        resp = httpx.post(
+            "https://api.vercel.com/v13/deployments",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json=payload,
             timeout=180,
         )
-        if result.returncode != 0:
-            print(f"[demo] npm install failed:\n{result.stderr[-2000:]}")
-            return False
-
-        _set_sub_stage(conn, lead_id, "npm_build")
-        result = subprocess.run(
-            f"{_NPM} run build",
-            shell=True,
-            env=_NODE_ENV,
-            cwd=str(demo_dir),
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode != 0:
-            print(f"[demo] vite build failed:\n{result.stderr[-2000:]}")
-            return False
-
-        return True
+        data = resp.json()
+        if resp.status_code in (200, 201):
+            url = data.get("url") or ""
+            if url and not url.startswith("https://"):
+                url = f"https://{url}"
+            print(f"[demo] vercel deploy ok: {url}")
+            return url or None
+        print(f"[demo] vercel API error {resp.status_code}: {json.dumps(data)[:500]}")
     except Exception as e:
-        print(f"[demo] build error: {e}")
-        return False
-
-
-def _deploy_to_vercel(demo_dir: Path, slug: str, conn, lead_id: int) -> str | None:
-    _set_sub_stage(conn, lead_id, "vercel_deploy")
-    try:
-        result = subprocess.run(
-            f"{_VERCEL} deploy dist --yes --name lead-{slug} --prod",
-            shell=True,
-            env=_NODE_ENV,
-            cwd=str(demo_dir),
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        for line in result.stdout.splitlines():
-            line = line.strip()
-            if line.startswith("https://"):
-                return line
-        for line in result.stderr.splitlines():
-            if "https://" in line:
-                m = re.search(r'https://[^\s]+', line)
-                if m:
-                    return m.group()
-    except Exception as e:
-        print(f"[demo] vercel deploy error: {e}")
+        print(f"[demo] vercel API exception: {e}")
     return None
 
 
@@ -536,18 +521,8 @@ def generate_demo(lead: dict, conn) -> str | None:
     _setup_demo_dir(demo_dir)
     (demo_dir / "src" / "App.jsx").write_text(app_jsx, encoding="utf-8")
 
-    # Stage 10: Build with Vite
-    build_ok = _build_react(demo_dir, conn, lead_id)
-    if not build_ok:
-        conn.execute(
-            "UPDATE leads SET stage='demo_build_failed', updated_at=datetime('now') WHERE id=?",
-            (lead_id,),
-        )
-        conn.commit()
-        return None
-
-    # Stage 11: Deploy to Vercel
-    demo_url = _deploy_to_vercel(demo_dir, slug, conn, lead_id)
+    # Stage 10+11: Deploy source to Vercel (Vercel builds in their cloud)
+    demo_url = _deploy_via_vercel_api(demo_dir, slug, conn, lead_id)
 
     if demo_url:
         conn.execute(
