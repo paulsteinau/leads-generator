@@ -194,6 +194,46 @@ def _build_codegen_prompt(
 
     nav_text = ", ".join(content.get("nav_items", []))
 
+    # Extract subpage URLs from subpage_text (format: "[url]:\ncontent")
+    subpage_urls: list[str] = []
+    for line in (content.get("subpage_text") or "").split("\n"):
+        line = line.strip()
+        if line.startswith("[http") and line.endswith("]:"):
+            url = line[1:-2]
+            subpage_urls.append(url)
+
+    # Build route map: derive clean slug + label from URL path
+    from urllib.parse import urlparse as _urlparse
+    routes: list[dict] = []
+    seen_slugs: set = set()
+    for url in subpage_urls[:8]:
+        path = _urlparse(url).path.rstrip("/")
+        if not path or path == "/":
+            continue
+        parts = [p for p in path.split("/") if p]
+        route_slug = parts[-1].lower().replace("-", "-").replace("_", "-")[:30]
+        if route_slug in seen_slugs:
+            continue
+        seen_slugs.add(route_slug)
+        label = parts[-1].replace("-", " ").replace("_", " ").title()
+        routes.append({"url": url, "path": f"/{route_slug}", "label": label})
+
+    routes_section = ""
+    if routes:
+        route_lines = "\n".join(
+            f'  - path="{r["path"]}" label="{r["label"]}" (content from: {r["url"]})'
+            for r in routes
+        )
+        routes_section = f"""
+## Subpages to Implement as React Router Routes
+The existing website has these subpages — each must become a real route:
+{route_lines}
+
+Route "/" is the home/landing page (full marketing page with hero, key sections, CTA).
+Each subpage route renders its own dedicated page component with full content from the scraped data.
+The Nav must link to all routes and show the active route visually.
+"""
+
     # Parse red flags
     raw_flags = lead.get("red_flags", "[]")
     try:
@@ -265,6 +305,7 @@ def _build_codegen_prompt(
 
     return f"""
 {screenshot_context}Generate a complete single-file React App.jsx for this German business demo website.
+{routes_section}
 
 ## Business Info
 Name: {lead.get('name', '')}
@@ -352,13 +393,25 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - motion/react: import {{ motion, useScroll, useTransform, useInView, useReducedMotion }} from 'motion/react'
 - gsap: import {{ gsap }} from 'gsap'; import {{ ScrollTrigger }} from 'gsap/ScrollTrigger'
 - Icons: import {{ Phone, MapPin, Star, ArrowRight, CheckCircle, Clock }} from '@phosphor-icons/react'
+- React Router: import {{ BrowserRouter, Routes, Route, Link, NavLink, useLocation }} from 'react-router-dom'
 - All copy in German
-- Required: sticky Nav (always first) + Hero (always second) + Footer (always last)
-- Everything between Nav and Footer: YOU decide the section structure and order based on what serves this specific business best
-  Use the scraped subpage content to determine which sections deserve their own dedicated area
-  A law firm might need: Rechtsgebiete, Team/Anwälte, Referenzen, Mandanten-Info, Kontakt
-  A restaurant might need: Speisekarte, Atmosphäre, Reservierung, Über uns, Events
-  Do NOT default to the same generic section order every time — adapt to the business
+
+## Routing Architecture
+- App() renders: <BrowserRouter><Layout /></BrowserRouter>
+- Layout component: sticky Nav + <Outlet /> + Footer (uses useOutlet or nested Routes)
+- Route "/" = HomePage: full marketing landing page (hero, key sections, CTAs)
+- Additional routes for each subpage listed above — each is its own page component
+- Nav uses <NavLink> with active styling (e.g. className={{{{ isActive }}}} => isActive ? 'underline' : '')
+- useLocation() for scroll-to-top on route change (useEffect on location.pathname)
+- If no subpages found: build a single-page app without router, just scroll sections
+
+## Home Page Structure
+- Required: sticky Nav (always first) + Hero + Footer (always last)
+- Everything between Hero and Footer: YOU decide what sections fit this specific business
+  A law firm: Rechtsgebiete, Team/Anwälte, Referenzen, Kontakt
+  A restaurant: Speisekarte highlights, Atmosphäre, Reservierung, Kontakt
+  Adapt to the actual business — do NOT default to the same generic order every time
+
 - Each section must be fully implemented — no placeholders, no TODOs, no "// add more here" comments
 ## ANIMATION PHILOSOPHY
 Use motion/react and GSAP where it serves the design — not everywhere by default.
