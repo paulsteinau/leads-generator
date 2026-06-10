@@ -51,7 +51,15 @@ _pipeline_proc: subprocess.Popen | None = None
 
 @app.on_event("startup")
 def startup():
-    init_db()
+    conn = init_db()
+    # Any lead stuck in generating_demo from a previous container run is a zombie — reset it
+    affected = conn.execute(
+        "UPDATE leads SET stage='demo_build_failed', demo_sub_stage=NULL, updated_at=datetime('now')"
+        " WHERE stage='generating_demo'"
+    ).rowcount
+    conn.commit()
+    if affected:
+        print(f"[startup] Reset {affected} zombie generating_demo lead(s) to demo_build_failed")
 
 
 # ── Pipeline control ──────────────────────────────────────────────────────────
