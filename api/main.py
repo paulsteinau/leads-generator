@@ -480,12 +480,13 @@ def trigger_generate_demo(lead_id: int):
 def demo_status(lead_id: int):
     conn = get_conn()
     row = conn.execute(
-        "SELECT stage, demo_url, demo_screenshots FROM leads WHERE id=?", (lead_id,)
+        "SELECT stage, demo_url, demo_screenshots, demo_sub_stage FROM leads WHERE id=?", (lead_id,)
     ).fetchone()
     if not row:
         raise HTTPException(404, "Lead not found")
     return {
         "stage": row["stage"],
+        "sub_stage": row["demo_sub_stage"],
         "demo_url": row["demo_url"],
         "has_screenshots": bool(row["demo_screenshots"]),
         "ready": row["stage"] == "ready_for_review",

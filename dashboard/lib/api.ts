@@ -147,7 +147,7 @@ export async function generateDemo(leadId: number): Promise<{ ok: boolean; error
 }
 
 export async function getDemoStatus(leadId: number): Promise<{
-  stage: string; demo_url: string | null; has_screenshots: boolean; ready: boolean; failed: boolean;
+  stage: string; sub_stage: string | null; demo_url: string | null; has_screenshots: boolean; ready: boolean; failed: boolean;
 }> {
   const res = await fetch(`${API}/leads/${leadId}/demo-status`, { headers: authHeaders() });
   return res.json();

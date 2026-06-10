@@ -29,6 +29,14 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "react-template"
 NPM_CACHE_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data")) / ".npm-cache"
 
 
+def _set_sub_stage(conn, lead_id: int, sub_stage: str) -> None:
+    conn.execute(
+        "UPDATE leads SET demo_sub_stage=?, updated_at=datetime('now') WHERE id=?",
+        (sub_stage, lead_id),
+    )
+    conn.commit()
+
+
 def _make_slug(lead: dict) -> str:
     name = (lead.get("name") or "demo").lower()
     name = re.sub(r"[^a-z0-9]+", "-", name).strip("-")[:30]
@@ -346,9 +354,10 @@ def _setup_demo_dir(demo_dir: Path) -> None:
     (demo_dir / "src").mkdir(exist_ok=True)
 
 
-def _build_react(demo_dir: Path) -> bool:
+def _build_react(demo_dir: Path, conn, lead_id: int) -> bool:
     NPM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     try:
+        _set_sub_stage(conn, lead_id, "npm_install")
         result = subprocess.run(
             f"npm install --cache {NPM_CACHE_DIR} --prefer-offline",
             shell=True,
@@ -361,6 +370,7 @@ def _build_react(demo_dir: Path) -> bool:
             print(f"[demo] npm install failed:\n{result.stderr[-2000:]}")
             return False
 
+        _set_sub_stage(conn, lead_id, "npm_build")
         result = subprocess.run(
             "npm run build",
             shell=True,
@@ -379,7 +389,8 @@ def _build_react(demo_dir: Path) -> bool:
         return False
 
 
-def _deploy_to_vercel(demo_dir: Path, slug: str) -> str | None:
+def _deploy_to_vercel(demo_dir: Path, slug: str, conn, lead_id: int) -> str | None:
+    _set_sub_stage(conn, lead_id, "vercel_deploy")
     try:
         result = subprocess.run(
             f"vercel deploy dist --yes --name lead-{slug} --prod",
@@ -413,6 +424,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     demo_dir = DATA_DIR / slug
 
     # Stage 1: Scrape existing website
+    _set_sub_stage(conn, lead_id, "scraping")
     content: dict = {}
     if lead.get("website"):
         content = asyncio.run(scrape_website_content(lead["website"]))
@@ -433,9 +445,11 @@ def generate_demo(lead: dict, conn) -> str | None:
     ref_css = selected_sites[0].get("css", {}) if selected_sites else {}
 
     # Stage 3: Category design inspiration (cached 7 days)
+    _set_sub_stage(conn, lead_id, "inspiration")
     inspiration = get_inspiration_notes(category=category, conn=conn, lead_id=lead_id)
 
     # Stage 4: Haiku — structured content extraction
+    _set_sub_stage(conn, lead_id, "content_extraction")
     print(f"[demo] Extracting structured content for lead {lead_id}...")
     structured = _extract_structured_content(
         raw_text=content.get("raw_text", ""),
@@ -446,6 +460,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     )
 
     # Stage 5: Sonnet — design brief (Sonnet understands design intent better than Haiku)
+    _set_sub_stage(conn, lead_id, "design_brief")
     print(f"[demo] Generating design brief for lead {lead_id}...")
     design_brief = claude_p(
         prompt=_build_design_brief_prompt(lead, inspiration, ref_css),
@@ -472,6 +487,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     ]
 
     # Stage 8: Opus — generate App.jsx
+    _set_sub_stage(conn, lead_id, "generating_jsx")
     print(f"[demo] Generating App.jsx with Opus for lead {lead_id} ({len(images)} images)...")
     prompt = _build_codegen_prompt(
         lead=lead,
@@ -502,6 +518,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         app_jsx = re.sub(r'\n```$', '', app_jsx)
 
     # Stage 8.5: Haiku — JSX pre-flight validation
+    _set_sub_stage(conn, lead_id, "jsx_validation")
     app_jsx = _validate_and_fix_jsx(app_jsx, conn=conn, lead_id=lead_id)
 
     # Stage 9: Set up React project and write App.jsx
@@ -509,7 +526,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     (demo_dir / "src" / "App.jsx").write_text(app_jsx, encoding="utf-8")
 
     # Stage 10: Build with Vite
-    build_ok = _build_react(demo_dir)
+    build_ok = _build_react(demo_dir, conn, lead_id)
     if not build_ok:
         conn.execute(
             "UPDATE leads SET stage='demo_build_failed', updated_at=datetime('now') WHERE id=?",
@@ -519,7 +536,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         return None
 
     # Stage 11: Deploy to Vercel
-    demo_url = _deploy_to_vercel(demo_dir, slug)
+    demo_url = _deploy_to_vercel(demo_dir, slug, conn, lead_id)
 
     if demo_url:
         conn.execute(

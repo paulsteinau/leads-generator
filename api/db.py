@@ -109,6 +109,7 @@ def _apply_migrations(conn) -> None:
         "ALTER TABLE leads ADD COLUMN demo_screenshots TEXT",
         "ALTER TABLE leads ADD COLUMN email_subjects TEXT",
         "ALTER TABLE leads ADD COLUMN email_message_id TEXT",
+        "ALTER TABLE leads ADD COLUMN demo_sub_stage TEXT",
     ]
     for sql in migrations:
         try:

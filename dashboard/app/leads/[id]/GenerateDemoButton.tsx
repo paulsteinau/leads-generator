@@ -2,6 +2,21 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { generateDemo, getDemoStatus } from "@/lib/api";
 
+const SUB_STAGE_CONFIG: Record<string, { pct: number; label: string }> = {
+  scraping:          { pct: 5,  label: "Website wird gescraped..." },
+  inspiration:       { pct: 12, label: "Design-Inspiration wird geladen..." },
+  content_extraction:{ pct: 18, label: "Inhalte werden analysiert..." },
+  design_brief:      { pct: 25, label: "Design-Brief wird erstellt..." },
+  generating_jsx:    { pct: 30, label: "KI generiert Demo-Code..." },
+  jsx_validation:    { pct: 75, label: "Code wird validiert..." },
+  npm_install:       { pct: 82, label: "Pakete werden installiert..." },
+  npm_build:         { pct: 88, label: "Website wird gebaut..." },
+  vercel_deploy:     { pct: 93, label: "Demo wird deployed..." },
+};
+
+// generating_jsx is slow (~5 min); animate pct from 30 → 72 over 300s
+const JSX_ANIM_DURATION_S = 300;
+
 interface Props {
   leadId: number;
   initialStage: string;
@@ -13,17 +28,32 @@ const FAILED_STAGES = new Set(["demo_build_failed", "demo_failed"]);
 
 export default function GenerateDemoButton({ leadId, initialStage, initialDemoUrl }: Props) {
   const [stage, setStage] = useState(initialStage);
+  const [subStage, setSubStage] = useState<string | null>(null);
   const [demoUrl, setDemoUrl] = useState(initialDemoUrl);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // isPolling is the source of truth for whether we're actively waiting on a run
   const [isPolling, setIsPolling] = useState(initialStage === "generating_demo");
-  // only stop on failed stage after we've confirmed the new run actually started
   const seenGenerating = useRef(false);
+  // for animating the generating_jsx progress
+  const [jsxStartTime, setJsxStartTime] = useState<number | null>(null);
+  const [animPct, setAnimPct] = useState(30);
+
+  // animate bar while stuck in generating_jsx
+  useEffect(() => {
+    if (subStage !== "generating_jsx") { setJsxStartTime(null); return; }
+    if (!jsxStartTime) { setJsxStartTime(Date.now()); return; }
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - jsxStartTime) / 1000;
+      const progress = Math.min(elapsed / JSX_ANIM_DURATION_S, 1);
+      setAnimPct(30 + Math.round(progress * 42)); // 30 → 72
+    }, 1000);
+    return () => clearInterval(id);
+  }, [subStage, jsxStartTime]);
 
   const poll = useCallback(async () => {
     const status = await getDemoStatus(leadId);
     setStage(status.stage);
+    setSubStage(status.sub_stage);
     if (status.demo_url) setDemoUrl(status.demo_url);
     return status;
   }, [leadId]);
@@ -71,12 +101,27 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
   if (demoUrl || DONE_STAGES.has(stage)) return null;
 
   if (isPolling || stage === "generating_demo") {
+    const cfg = subStage ? SUB_STAGE_CONFIG[subStage] : null;
+    const pct = subStage === "generating_jsx" ? animPct : (cfg?.pct ?? 2);
+    const label = cfg?.label ?? "Demo wird vorbereitet...";
+
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
-        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <div>
-          <p className="text-sm font-medium text-blue-700">Phase 2 läuft — Demo + E-Mail werden erstellt...</p>
-          <p className="text-xs text-blue-500">Website scrapen → KI-Demo generieren → Vercel-Deploy → E-Mail schreiben</p>
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-blue-700">Phase 2 läuft — Demo + E-Mail werden erstellt...</p>
+            <p className="text-xs text-blue-500">{label}</p>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-2 rounded-full bg-blue-500 transition-all duration-1000 ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-right text-xs text-blue-400">{pct}%</p>
         </div>
       </div>
     );
