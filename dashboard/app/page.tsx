@@ -1,4 +1,4 @@
-import { getStats, getLeads } from "@/lib/api";
+import { getStats, getLeads, getCosts } from "@/lib/api";
 import Link from "next/link";
 import DashboardShell from "./components/DashboardShell";
 import AddLeadButton from "./components/AddLeadButton";
@@ -42,7 +42,7 @@ export default async function Home({
 }: {
   searchParams: Record<string, string>;
 }) {
-  const [stats, leads] = await Promise.all([getStats(), getLeads(searchParams)]);
+  const [stats, leads, costs] = await Promise.all([getStats(), getLeads(searchParams), getCosts()]);
   const activeTier = searchParams.tier;
   const activeStatus = searchParams.status;
 
@@ -67,13 +67,36 @@ export default async function Home({
       </div>
 
       {/* Stats cards */}
-      <div className="px-6 pb-4">
+      <div className="px-6 pb-4 space-y-3">
         <div className="grid grid-cols-4 gap-3">
           {[
             { label: "Hot",       value: stats.hot,       color: "text-red-600",    bg: "bg-red-50",     ring: "ring-red-100",    dot: "bg-red-500"    },
             { label: "Warm",      value: stats.warm,      color: "text-orange-600", bg: "bg-orange-50",  ring: "ring-orange-100", dot: "bg-orange-500" },
             { label: "Neu heute", value: stats.new_today, color: "text-indigo-600", bg: "bg-indigo-50",  ring: "ring-indigo-100", dot: "bg-indigo-500" },
             { label: "Contacted", value: stats.contacted, color: "text-green-600",  bg: "bg-green-50",   ring: "ring-green-100",  dot: "bg-green-500"  },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center justify-between"
+            >
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-1">{s.label}</p>
+                <p className={`text-2xl font-bold tabular ${s.color}`}>{s.value}</p>
+              </div>
+              <div className={`w-8 h-8 ${s.bg} ring-1 ${s.ring} rounded-xl flex items-center justify-center`}>
+                <div className={`w-2 h-2 ${s.dot} rounded-full`} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Cost row */}
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: "API heute",   value: `$${costs.today_usd.toFixed(3)}`,          color: "text-amber-600", bg: "bg-amber-50",  ring: "ring-amber-100",  dot: "bg-amber-400" },
+            { label: "API Monat",   value: `$${costs.month_usd.toFixed(2)}`,           color: "text-amber-700", bg: "bg-amber-50",  ring: "ring-amber-100",  dot: "bg-amber-500" },
+            { label: "Demos gen.",  value: String(costs.demos_total),                  color: "text-violet-600", bg: "bg-violet-50", ring: "ring-violet-100", dot: "bg-violet-400" },
+            { label: "Ø Kosten/Demo", value: costs.cost_per_demo_avg > 0 ? `$${costs.cost_per_demo_avg.toFixed(3)}` : "—", color: "text-gray-600", bg: "bg-gray-50", ring: "ring-gray-100", dot: "bg-gray-300" },
           ].map((s) => (
             <div
               key={s.label}

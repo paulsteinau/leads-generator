@@ -76,12 +76,26 @@ export interface PipelineStatus {
   pid: number | null;
 }
 
+export interface CostStats {
+  today_usd: number;
+  month_usd: number;
+  total_usd: number;
+  demos_total: number;
+  cost_per_demo_avg: number;
+  by_model: { model: string; total_usd: number; calls: number }[];
+  today_tokens_in: number;
+  today_tokens_out: number;
+}
+
 export interface LogResponse {
   lines: string[];
 }
 
 export const getStats = (): Promise<Stats> =>
   fetch(`${API}/stats`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
+
+export const getCosts = (): Promise<CostStats> =>
+  fetch(`${API}/costs`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
 export const getLeads = (p?: Record<string, string>): Promise<LeadSummary[]> =>
   fetch(`${API}/leads${p ? "?" + new URLSearchParams(p) : ""}`, { cache: "no-store", headers: authHeaders() }).then((r) =>

@@ -106,11 +106,33 @@ def get_costs():
     def s(q, *p):
         return conn.execute(q, p).fetchone()[0] or 0
 
+    # Per-model breakdown
+    by_model_rows = conn.execute(
+        "SELECT model, SUM(cost_usd), COUNT(*) FROM cost_log GROUP BY model ORDER BY SUM(cost_usd) DESC"
+    ).fetchall()
+    by_model = [{"model": r[0], "total_usd": round(r[1] or 0, 4), "calls": r[2]} for r in by_model_rows]
+
+    # Cost per demo: sum of demo_gen + design_brief + content_extraction per lead, then average
+    demo_cost_row = conn.execute(
+        "SELECT AVG(lead_cost) FROM ("
+        "  SELECT lead_id, SUM(cost_usd) AS lead_cost FROM cost_log"
+        "  WHERE stage IN ('demo_gen','design_brief','content_extraction')"
+        "  GROUP BY lead_id"
+        ")"
+    ).fetchone()
+    cost_per_demo = round(demo_cost_row[0] or 0, 4)
+
+    demos_total = s(
+        "SELECT COUNT(DISTINCT lead_id) FROM cost_log WHERE stage='demo_gen'"
+    )
+
     return {
         "today_usd": round(s("SELECT SUM(cost_usd) FROM cost_log WHERE logged_at >= ?", today), 4),
         "month_usd": round(s("SELECT SUM(cost_usd) FROM cost_log WHERE logged_at >= ?", month_start), 4),
         "total_usd": round(s("SELECT SUM(cost_usd) FROM cost_log"), 4),
-        "total_emails": s("SELECT COUNT(*) FROM cost_log"),
+        "demos_total": demos_total,
+        "cost_per_demo_avg": cost_per_demo,
+        "by_model": by_model,
         "today_tokens_in": s("SELECT SUM(input_tokens) FROM cost_log WHERE logged_at >= ?", today),
         "today_tokens_out": s("SELECT SUM(output_tokens) FROM cost_log WHERE logged_at >= ?", today),
     }

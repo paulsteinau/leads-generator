@@ -58,6 +58,25 @@ async def _extract_images(page) -> list[str]:
     return imgs or []
 
 
+async def _extract_bg_images(page) -> list[str]:
+    """Extract CSS background-image URLs from computed styles."""
+    urls = await page.evaluate("""
+        () => {
+            const seen = new Set();
+            for (const el of document.querySelectorAll('*')) {
+                const bg = getComputedStyle(el).backgroundImage;
+                if (bg && bg !== 'none' && bg.includes('url(')) {
+                    const m = bg.match(/url\\(["']?([^"')]+)["']?\\)/);
+                    if (m && m[1].startsWith('http')) seen.add(m[1]);
+                }
+                if (seen.size >= 5) break;
+            }
+            return [...seen];
+        }
+    """)
+    return urls or []
+
+
 async def scrape_website_content(url: str) -> dict:
     """
     Visit `url` and extract all content useful for demo generation.
@@ -75,6 +94,7 @@ async def scrape_website_content(url: str) -> dict:
         "nav_items": [],
         "testimonials": [],
         "images": [],
+        "bg_images": [],
         "raw_text": "",
         "screenshot_b64": "",
     }
@@ -200,13 +220,23 @@ async def scrape_website_content(url: str) -> dict:
             if email_match:
                 result["contact"]["email"] = email_match.group()
 
-            # Screenshot (JPEG, viewport only — keeps payload small)
-            shot = await page.screenshot(type="jpeg", quality=80, full_page=False)
-            result["screenshot_b64"] = base64.b64encode(shot).decode()
+            # Two screenshots: hero (0) + mid section (800px scroll)
+            page_height = await page.evaluate("() => document.body.scrollHeight")
+            lead_shots = []
+            for scroll_y in [0, 800]:
+                if scroll_y > 0 and scroll_y >= page_height:
+                    break
+                await page.evaluate(f"window.scrollTo(0, {scroll_y})")
+                await asyncio.sleep(0.2)
+                shot = await page.screenshot(type="jpeg", quality=80, full_page=False)
+                lead_shots.append(base64.b64encode(shot).decode())
+            result["screenshot_b64"] = lead_shots[0] if lead_shots else ""
+            result["screenshots"] = lead_shots
 
-            # Colors + images
+            # Colors + images + CSS background images
             result["colors"] = await _extract_colors(page)
             result["images"] = await _extract_images(page)
+            result["bg_images"] = await _extract_bg_images(page)
 
             # Services: look for list items, short paragraphs near keywords
             services_raw = await page.evaluate("""

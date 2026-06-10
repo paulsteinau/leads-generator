@@ -1,6 +1,6 @@
 CATEGORIES = [
     "Zahnarzt", "Anwalt", "Immobilienmakler",  # High-ROI first
-    "Physiotherapie", "Küchenstudio", "Druckerei",
+    "Physiotherapie", "Küchenstudio", "Architekt",
     "Handwerker", "Steuerberater", "Schönheitsklinik",
     "Umzugsfirma", "Friseur",
 ]

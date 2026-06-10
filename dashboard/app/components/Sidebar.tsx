@@ -12,23 +12,33 @@ interface Stats {
   new_today: number;
 }
 
+interface CostStats {
+  today_usd: number;
+  month_usd: number;
+  demos_total: number;
+  cost_per_demo_avg: number;
+}
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [costs, setCosts] = useState<CostStats | null>(null);
   const [running, setRunning] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [s, p] = await Promise.all([
+        const [s, p, c] = await Promise.all([
           fetch(`${API}/stats`, { cache: "no-store" }).then((r) => r.json()),
           fetch(`${API}/pipeline/status`, { cache: "no-store" }).then((r) => r.json()),
+          fetch(`${API}/costs`, { cache: "no-store" }).then((r) => r.json()),
         ]);
         setStats(s);
         setRunning(p.running ?? false);
+        setCosts(c);
       } catch {}
     };
     fetchStats();
@@ -126,6 +136,33 @@ export default function Sidebar() {
               <p className="text-sm font-bold text-green-400 tabular">{stats.contacted}</p>
             </div>
           </div>
+
+          {costs && (
+            <>
+              <div className="my-2.5 border-t border-white/[0.06]" />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/20 mb-2">API Kosten</p>
+              <div className="grid grid-cols-2 gap-y-2 gap-x-3">
+                <div>
+                  <p className="text-[11px] text-white/35">Heute</p>
+                  <p className="text-sm font-bold text-yellow-400 tabular">${costs.today_usd.toFixed(3)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-white/35">Monat</p>
+                  <p className="text-sm font-bold text-yellow-300 tabular">${costs.month_usd.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-white/35">Demos</p>
+                  <p className="text-sm font-bold text-white/60 tabular">{costs.demos_total}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-white/35">Ø/Demo</p>
+                  <p className="text-sm font-bold text-white/60 tabular">
+                    {costs.cost_per_demo_avg > 0 ? `$${costs.cost_per_demo_avg.toFixed(3)}` : "—"}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
