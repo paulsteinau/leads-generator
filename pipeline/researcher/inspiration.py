@@ -34,6 +34,21 @@ DESIGN_ARCHETYPES: dict[str, str] = {
 }
 
 
+SCHEMA_TYPES: dict[str, str] = {
+    "Zahnarzt": "Dentist",
+    "Anwalt": "LegalService",
+    "Immobilienmakler": "RealEstateAgent",
+    "Physiotherapie": "PhysicalTherapy",
+    "Küchenstudio": "HomeAndConstructionBusiness",
+    "Architekt": "Architect",
+    "Handwerker": "HomeAndConstructionBusiness",
+    "Steuerberater": "AccountingService",
+    "Schönheitsklinik": "BeautySalon",
+    "Umzugsfirma": "MovingCompany",
+    "Friseur": "HairSalon",
+}
+
+
 def get_inspiration_notes(category: str, conn=None, lead_id: int = 0) -> str:
     """
     Return design notes for the given category.

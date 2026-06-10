@@ -19,7 +19,7 @@ import subprocess
 from pathlib import Path
 
 from pipeline.scraper.website_content import scrape_website_content
-from pipeline.researcher.inspiration import get_inspiration_notes
+from pipeline.researcher.inspiration import get_inspiration_notes, SCHEMA_TYPES
 from pipeline.researcher.reference_screenshots import get_all_reference_data
 from pipeline.utils.claude_p import claude_p
 from pipeline.utils.skill_loader import build_design_system_prompt
@@ -127,6 +127,37 @@ def _build_codegen_prompt(
 
     nav_text = ", ".join(content.get("nav_items", []))
 
+    # Parse red flags
+    raw_flags = lead.get("red_flags", "[]")
+    try:
+        flags = json.loads(raw_flags) if isinstance(raw_flags, str) else (raw_flags or [])
+    except Exception:
+        flags = []
+
+    # Build weakness section
+    weakness_lines = []
+    ps_mobile = lead.get("pagespeed_mobile")
+    ps_desktop = lead.get("pagespeed_desktop")
+    seo_score = lead.get("seo_score")
+    if ps_mobile is not None:
+        weakness_lines.append(f"- Mobile PageSpeed: {ps_mobile}/100{' — critically slow, optimize heavily' if ps_mobile < 50 else ''}")
+    if ps_desktop is not None:
+        weakness_lines.append(f"- Desktop PageSpeed: {ps_desktop}/100")
+    if seo_score is not None:
+        weakness_lines.append(f"- SEO Score: {seo_score}/100 — fix with proper structure, headings, meta tags")
+    if not lead.get("has_cta"):
+        weakness_lines.append("- No CTA found — add prominent booking/contact button above the fold")
+    if not lead.get("has_booking"):
+        weakness_lines.append("- No booking system — add a clear appointment/contact CTA")
+    if not lead.get("is_mobile_ready"):
+        weakness_lines.append("- Not mobile-optimized — demo must be fully responsive")
+    for flag in flags:
+        weakness_lines.append(f"- {flag}")
+    weakness_section = (
+        "## Known Issues — Fix ALL of These in the Demo\n" + "\n".join(weakness_lines)
+        if weakness_lines else ""
+    )
+
     # Images: real <img> tags + CSS background images
     scraped_images = content.get("images", [])
     bg_images = content.get("bg_images", [])
@@ -162,6 +193,8 @@ def _build_codegen_prompt(
             screenshot_lines.append(f"Image {idx}: Current lead website — {label}. Dramatically improve this while keeping all real content.")
             idx += 1
     screenshot_context = "\n".join(screenshot_lines) + "\n\n" if screenshot_lines else ""
+
+    schema_type = SCHEMA_TYPES.get(lead.get("category", ""), "LocalBusiness")
 
     return f"""
 {screenshot_context}Generate a complete single-file React App.jsx for this German business demo website.
@@ -202,11 +235,40 @@ Service 2: https://picsum.photos/seed/{slug}-s2/800/600
 Service 3: https://picsum.photos/seed/{slug}-s3/800/600
 About: https://picsum.photos/seed/{slug}-about/1200/800
 
+{weakness_section}
+
 ## Design Brief (implement exactly)
 {design_brief}
 
 ## Category Design Inspiration
 {inspiration}
+
+## SEO & AEO Requirements (implement ALL — non-negotiable)
+
+### Meta Tags (set via useEffect on mount)
+- document.title: "{lead.get('name', '')} — {lead.get('category', '')} in {lead.get('district', 'Berlin')}"
+- meta[name="description"]: 150-160 Zeichen, enthält Hauptleistung + Standort + USP
+- meta[property="og:title"], meta[property="og:description"], meta[property="og:locale"] content="de_DE"
+- meta[name="robots"] content="index, follow"
+
+### Schema.org JSON-LD (render as <script type="application/ld+json"> in JSX via dangerouslySetInnerHTML)
+Primary type: {schema_type}
+Required fields: name, address (streetAddress, addressLocality, addressCountry="DE"), telephone, url
+If google_rating exists: include aggregateRating (ratingValue + reviewCount)
+FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
+
+### Semantic HTML Structure
+- Exactly ONE <h1>: business name or primary tagline
+- Section titles as <h2>: Leistungen, Über uns, Prozess, Bewertungen, FAQ, Kontakt
+- Individual service/feature names as <h3>
+- Body text in <p>, lists in <ul>/<li>
+- Use semantic elements: <header>, <main>, <section>, <footer>, <nav>, <address>
+
+### AEO Content Structure (for AI search engines)
+- FAQ: each question as clear <h3>, answer as 2-3 sentence <p> — direct and factual
+- "Über uns": structured paragraph covering who / what / where / since when
+- Contact section: NAP (Name, Adresse, Telefon) consistent with business info
+- No filler text — every sentence must be scannable and informative
 
 ## Output Rules
 - Output ONLY valid JSX starting with import statements
