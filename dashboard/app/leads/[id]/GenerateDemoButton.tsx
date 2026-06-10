@@ -1,6 +1,5 @@
-// dashboard/app/leads/[id]/GenerateDemoButton.tsx
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { generateDemo, getDemoStatus } from "@/lib/api";
 
 interface Props {
@@ -9,14 +8,18 @@ interface Props {
   initialDemoUrl: string | null;
 }
 
-const GENERATING_STAGES = new Set(["generating_demo"]);
 const DONE_STAGES = new Set(["ready_for_review", "approved", "rejected"]);
+const FAILED_STAGES = new Set(["demo_build_failed", "demo_failed"]);
 
 export default function GenerateDemoButton({ leadId, initialStage, initialDemoUrl }: Props) {
   const [stage, setStage] = useState(initialStage);
   const [demoUrl, setDemoUrl] = useState(initialDemoUrl);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // isPolling is the source of truth for whether we're actively waiting on a run
+  const [isPolling, setIsPolling] = useState(initialStage === "generating_demo");
+  // only stop on failed stage after we've confirmed the new run actually started
+  const seenGenerating = useRef(false);
 
   const poll = useCallback(async () => {
     const status = await getDemoStatus(leadId);
@@ -26,18 +29,31 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
   }, [leadId]);
 
   useEffect(() => {
-    if (!GENERATING_STAGES.has(stage)) return;
+    if (!isPolling) return;
+    seenGenerating.current = false;
+
     const interval = setInterval(async () => {
       const status = await poll();
-      if (!GENERATING_STAGES.has(status.stage)) {
+
+      if (status.stage === "generating_demo") {
+        seenGenerating.current = true;
+      }
+
+      const isDone = DONE_STAGES.has(status.stage) || !!status.demo_url;
+      // only stop on failure after we've seen the new run start (avoids stopping on stale failed state)
+      const isFailed = FAILED_STAGES.has(status.stage) && seenGenerating.current;
+
+      if (isDone || isFailed) {
         clearInterval(interval);
-        if (status.ready || status.demo_url) {
-          window.location.reload(); // refresh to show ReviewPanel + demo iframe
+        setIsPolling(false);
+        if (isDone) {
+          window.location.reload();
         }
       }
     }, 4000);
+
     return () => clearInterval(interval);
-  }, [stage, poll]);
+  }, [isPolling, poll]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -45,6 +61,7 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
     const result = await generateDemo(leadId);
     if (result.ok) {
       setStage("generating_demo");
+      setIsPolling(true);
     } else {
       setError(result.error || "Fehler beim Starten");
     }
@@ -53,7 +70,7 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
 
   if (demoUrl || DONE_STAGES.has(stage)) return null;
 
-  if (GENERATING_STAGES.has(stage)) {
+  if (isPolling || stage === "generating_demo") {
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
         <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -80,7 +97,7 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
         {loading ? "Starte..." : "Phase 2 starten — Demo + E-Mail"}
       </button>
       {error && <p className="text-red-500 text-xs">{error}</p>}
-      {stage === "demo_failed" && (
+      {FAILED_STAGES.has(stage) && (
         <p className="text-orange-500 text-xs">Letzter Versuch fehlgeschlagen. Erneut versuchen?</p>
       )}
     </div>
