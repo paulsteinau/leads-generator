@@ -7,7 +7,10 @@ nixPkgs = ["nodejs_20"]
 cmds = [
   "pip install -r requirements.txt",
   "PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright playwright install chromium --with-deps",
-  "npm install -g vercel"
+  "npm install -g vercel",
+  "ln -sf $(which npm) /usr/local/bin/npm",
+  "ln -sf $(which node) /usr/local/bin/node",
+  "ln -sf $(which vercel) /usr/local/bin/vercel"
 ]
 
 [variables]
