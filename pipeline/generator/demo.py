@@ -384,8 +384,8 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - Output ONLY valid JSX starting with import statements
 - No markdown fences, no explanation text
 - React is auto-imported by Vite — do NOT write a bare `import React from 'react'`
-  If you need hooks, use ONLY: import { useState, useEffect, useRef, useCallback } from 'react' (once, combined)
-  Never write both `import React from 'react'` AND `import { useState } from 'react'` — that causes a build error
+  If you need hooks, use ONLY: import {{ useState, useEffect, useRef, useCallback }} from 'react' (once, combined)
+  Never write both `import React from 'react'` AND `import {{ useState }} from 'react'` — that causes a build error
 - All components defined in one file, exported as: export default function App()
 - Google Fonts: import via a <style> tag rendered in the component, e.g.:
   const FontImport = () => (
