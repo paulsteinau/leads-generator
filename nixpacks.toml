@@ -2,8 +2,7 @@ providers = ["python"]
 
 [phases.build]
 cmds = [
-  "pip install -r requirements.txt",
-  "PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright playwright install chromium --with-deps"
+  "pip install -r requirements.txt"
 ]
 
 [variables]
