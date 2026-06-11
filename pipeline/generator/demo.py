@@ -10,6 +10,7 @@ Flow:
   6. Vite build → Vercel deploy
 """
 import asyncio
+import hashlib
 import json
 import os
 import random
@@ -401,30 +402,56 @@ def _pick_animations(category: str, k: int = 6) -> list:
 # "neutral" categories get no forced palette — brief decides freely.
 
 _PALETTES_FORMAL = [
-    {"name": "Legal Navy",      "bg": "#080f1a", "surface": "#0d1a2e", "text": "#f0ebe0", "accent": "#c4a35a", "shadow": "#030810"},
-    {"name": "Forest Authority","bg": "#0c1a12", "surface": "#132318", "text": "#edf0e8", "accent": "#8aab7a", "shadow": "#060d08"},
-    {"name": "Barrister Ivory", "bg": "#f6f2eb", "surface": "#ffffff", "text": "#161410", "accent": "#7a5c2e", "shadow": "#ddd8cc"},
-    {"name": "Charcoal Edit",   "bg": "#111111", "surface": "#1c1c1c", "text": "#e8e4db", "accent": "#a08060", "shadow": "#080808"},
+    # Dark — legal / finance / authority
+    {"name": "Legal Navy",        "bg": "#080f1a", "surface": "#0d1a2e", "text": "#f0ebe0", "accent": "#c4a35a", "shadow": "#030810"},
+    {"name": "Charcoal Edit",     "bg": "#111111", "surface": "#1c1c1c", "text": "#e8e4db", "accent": "#a08060", "shadow": "#080808"},
+    {"name": "Midnight Slate",    "bg": "#0d1017", "surface": "#151b26", "text": "#dde4ee", "accent": "#7a9ab8", "shadow": "#060810"},
+    {"name": "Deep Burgundy",     "bg": "#130a0c", "surface": "#1e1014", "text": "#f0e8ea", "accent": "#a05060", "shadow": "#080508"},
+    {"name": "Dark Espresso",     "bg": "#100d0a", "surface": "#1a1612", "text": "#ede8e0", "accent": "#c08850", "shadow": "#080603"},
+    {"name": "Graphite Authority","bg": "#0e0e0f", "surface": "#191919", "text": "#e0ddd8", "accent": "#8899aa", "shadow": "#070708"},
+    # Light — editorial / prestigious
+    {"name": "Barrister Ivory",   "bg": "#f6f2eb", "surface": "#ffffff", "text": "#161410", "accent": "#7a5c2e", "shadow": "#ddd8cc"},
+    {"name": "Forest Authority",  "bg": "#0c1a12", "surface": "#132318", "text": "#edf0e8", "accent": "#8aab7a", "shadow": "#060d08"},
+    {"name": "Warm Parchment",    "bg": "#f5f0e6", "surface": "#fffcf5", "text": "#1a150e", "accent": "#6b5040", "shadow": "#ddd5c4"},
+    {"name": "Stone Editorial",   "bg": "#f2f2f0", "surface": "#ffffff", "text": "#181818", "accent": "#607060", "shadow": "#d8d8d4"},
+    {"name": "Cool Linen",        "bg": "#f4f5f7", "surface": "#ffffff", "text": "#141820", "accent": "#4a5c70", "shadow": "#d8dce4"},
+    {"name": "Dusty Rose Law",    "bg": "#f7f3f2", "surface": "#ffffff", "text": "#1c1614", "accent": "#8c5860", "shadow": "#e0d8d4"},
 ]
 
 _PALETTES_MEDICAL = [
-    {"name": "Clinical Light",  "bg": "#f8fafc", "surface": "#ffffff", "text": "#0f1e30", "accent": "#2c6e8a", "shadow": "#d4e0ea"},
-    {"name": "Warm Care",       "bg": "#fdfaf5", "surface": "#ffffff", "text": "#1c1812", "accent": "#4e7a6a", "shadow": "#e4ddd0"},
-    {"name": "Deep Medical",    "bg": "#0a1520", "surface": "#0f2030", "text": "#e8f0f8", "accent": "#4ab8c8", "shadow": "#050c14"},
-    {"name": "Sage Practice",   "bg": "#f4f7f4", "surface": "#ffffff", "text": "#141e18", "accent": "#3d7060", "shadow": "#d8e4dc"},
+    # Light — clinical / trustworthy
+    {"name": "Clinical Light",   "bg": "#f8fafc", "surface": "#ffffff", "text": "#0f1e30", "accent": "#2c6e8a", "shadow": "#d4e0ea"},
+    {"name": "Warm Care",        "bg": "#fdfaf5", "surface": "#ffffff", "text": "#1c1812", "accent": "#4e7a6a", "shadow": "#e4ddd0"},
+    {"name": "Sage Practice",    "bg": "#f4f7f4", "surface": "#ffffff", "text": "#141e18", "accent": "#3d7060", "shadow": "#d8e4dc"},
+    {"name": "Pearl Clinic",     "bg": "#f9f8f6", "surface": "#ffffff", "text": "#161410", "accent": "#5a6e80", "shadow": "#e0dcd4"},
+    {"name": "Soft Teal Health", "bg": "#f4f9f8", "surface": "#ffffff", "text": "#0f1e1c", "accent": "#3a7870", "shadow": "#d4e8e4"},
+    {"name": "Blush Wellness",   "bg": "#fdf6f5", "surface": "#ffffff", "text": "#1e1614", "accent": "#8a5a60", "shadow": "#e8d8d4"},
+    # Dark — premium specialist
+    {"name": "Deep Medical",     "bg": "#0a1520", "surface": "#0f2030", "text": "#e8f0f8", "accent": "#4ab8c8", "shadow": "#050c14"},
+    {"name": "Midnight Teal",    "bg": "#081410", "surface": "#0e2018", "text": "#e4f0ec", "accent": "#50b890", "shadow": "#040a08"},
+    {"name": "Dark Slate Health","bg": "#0c1018", "surface": "#131b28", "text": "#dce8f0", "accent": "#608898", "shadow": "#060810"},
 ]
 
 _PALETTES_LIGHT_TRADE = [
-    {"name": "Soft Studio",     "bg": "#faf8f5", "surface": "#ffffff", "text": "#1c1814", "accent": "#9b6e5c", "shadow": "#e4ddd6"},
-    {"name": "Clean Nordic",    "bg": "#f5f7f8", "surface": "#ffffff", "text": "#141c24", "accent": "#5c7a8a", "shadow": "#d8e0e8"},
-    {"name": "Warm Craft",      "bg": "#fdf8f2", "surface": "#ffffff", "text": "#1e1810", "accent": "#8c6840", "shadow": "#e8e0d4"},
+    {"name": "Soft Studio",      "bg": "#faf8f5", "surface": "#ffffff", "text": "#1c1814", "accent": "#9b6e5c", "shadow": "#e4ddd6"},
+    {"name": "Clean Nordic",     "bg": "#f5f7f8", "surface": "#ffffff", "text": "#141c24", "accent": "#5c7a8a", "shadow": "#d8e0e8"},
+    {"name": "Warm Craft",       "bg": "#fdf8f2", "surface": "#ffffff", "text": "#1e1810", "accent": "#8c6840", "shadow": "#e8e0d4"},
+    {"name": "Blush Atelier",    "bg": "#fdf5f4", "surface": "#ffffff", "text": "#1e1614", "accent": "#c07080", "shadow": "#ecdcd8"},
+    {"name": "Sage Workshop",    "bg": "#f4f6f2", "surface": "#ffffff", "text": "#141c10", "accent": "#6a8460", "shadow": "#d8e0d0"},
+    {"name": "Terracotta Studio","bg": "#faf5f0", "surface": "#ffffff", "text": "#1c1610", "accent": "#a07060", "shadow": "#e8ddd4"},
+    {"name": "Dusty Lavender",   "bg": "#f6f4f8", "surface": "#ffffff", "text": "#16141c", "accent": "#7868a0", "shadow": "#e0dce8"},
+    {"name": "Dark Craft",       "bg": "#0f0d0b", "surface": "#1a1714", "text": "#f0ece4", "accent": "#c89060", "shadow": "#070503"},
 ]
 
 _PALETTES_PLAYFUL = [
-    {"name": "Ink Dark",        "bg": "#0a0a0c", "surface": "#131318", "text": "#f0eeea", "accent": "#e85c3a", "shadow": "#050508"},
-    {"name": "Studio Night",    "bg": "#0f0e14", "surface": "#1a1824", "text": "#eceaf8", "accent": "#9b70e0", "shadow": "#08070e"},
-    {"name": "Raw Industrial",  "bg": "#111110", "surface": "#1c1c1a", "text": "#f0ede6", "accent": "#d4a030", "shadow": "#080806"},
-    {"name": "Deep Crimson",    "bg": "#0e0a0a", "surface": "#1c1212", "text": "#f4ede8", "accent": "#c43030", "shadow": "#080404"},
+    {"name": "Ink Dark",         "bg": "#0a0a0c", "surface": "#131318", "text": "#f0eeea", "accent": "#e85c3a", "shadow": "#050508"},
+    {"name": "Studio Night",     "bg": "#0f0e14", "surface": "#1a1824", "text": "#eceaf8", "accent": "#9b70e0", "shadow": "#08070e"},
+    {"name": "Raw Industrial",   "bg": "#111110", "surface": "#1c1c1a", "text": "#f0ede6", "accent": "#d4a030", "shadow": "#080806"},
+    {"name": "Deep Crimson",     "bg": "#0e0a0a", "surface": "#1c1212", "text": "#f4ede8", "accent": "#c43030", "shadow": "#080404"},
+    {"name": "Electric Moss",    "bg": "#090c08", "surface": "#121a10", "text": "#eef4e8", "accent": "#70c840", "shadow": "#050804"},
+    {"name": "Neon Night",       "bg": "#08090f", "surface": "#10121c", "text": "#eeeef8", "accent": "#3060e8", "shadow": "#050608"},
+    {"name": "Warm Amber Bar",   "bg": "#0e0b06", "surface": "#1c1810", "text": "#f4eedc", "accent": "#e09030", "shadow": "#070504"},
+    {"name": "Deep Violet",      "bg": "#0c0810", "surface": "#180f20", "text": "#ece8f8", "accent": "#b040d0", "shadow": "#080510"},
 ]
 
 _CATEGORY_TO_PALETTE_BUCKET = {
@@ -451,18 +478,28 @@ _CATEGORY_TO_PALETTE_BUCKET = {
 }
 
 
-def _get_suggested_palette(category: str) -> dict | None:
+def _get_suggested_palette(category: str, seed: str = "") -> dict | None:
+    """Pick a palette deterministically from the category bucket.
+
+    Uses a hash of `seed` (business name or URL) so the same business always
+    gets the same palette, but different businesses in the same category get
+    visually distinct ones.
+    """
     bucket = _CATEGORY_TO_PALETTE_BUCKET.get(category)
-    return random.choice(bucket) if bucket else None
+    if not bucket:
+        return None
+    idx = int(hashlib.md5(seed.encode("utf-8", errors="ignore")).hexdigest(), 16) % len(bucket)
+    return bucket[idx]
 
 
 # Formal-category premium design rules injected into the brief prompt
 _FORMAL_PREMIUM_RULES = """
 FORMAL PROFESSION — PREMIUM DESIGN RULES (non-negotiable):
-- Typography: serif heading (Fraunces, Playfair Display, or Cormorant Garamond) + clean sans body. No sans-only pairing.
-- Color: stay within the suggested palette. Accent must be muted metallic (gold, brass, sage, bronze) — never neon, blue, or purple.
-- Imagery: architectural detail shots, texture close-ups, office/material photography. NO smiling stock people.
-- Layout: editorial and structured. No bento grids, no card-stack chaos. Clean hierarchy only.
+- Typography: serif heading (Fraunces, Playfair Display, Cormorant Garamond, or Lora) + clean sans body (DM Sans, Inter, Outfit). No sans-only pairing.
+- Color: use the SUGGESTED PALETTE above exactly. If a scraped brand color exists, anchor one value to it — but stay within the palette's mood. Accent must be muted (bronze, sage, steel, rose-gold) — NEVER neon, AI-purple, or sky-blue.
+- UNIQUENESS RULE: NEVER default to navy background + gold accent for legal/formal sites — that is the generic AI cliche. The suggested palette was chosen specifically for this business. Use it. If the palette is dark burgundy, use burgundy. If it's stone editorial, use stone.
+- Imagery: architectural detail shots, texture close-ups, material photography. NO generic smiling stock people, NO generic handshake photos.
+- Layout: editorial and asymmetric. No equal-column feature grids, no bento chaos. Clean hierarchy, generous whitespace.
 - Motion: restrained — blur-emerge, text-scrub, gsap-pin-text, scale-reveal preferred. No spring-pop, no typewriter.
 - Copy tone: authoritative, specific, understated. "Seit 1998 vertreten wir Mandanten" not "Wir sind Ihr Partner."
 - Spacing: very generous. py-32 md:py-40 minimum on hero. Whitespace communicates premium.
@@ -479,9 +516,11 @@ COLOR:
 - Accent saturation below 80% — desaturate so it blends, not screams
 - No pure #000000 background — use off-blacks: #050505, #0a0a0a, #111111
 - No beige+brass combination for "premium" — overused and reads as template
+- NEVER navy + gold for lawyer/legal sites — this is the #1 most copied template look; even if the business is a law firm, pick something genuinely distinct
 - Shadows tinted to match background hue — never pure rgba(0,0,0,0.3)
 - ONE gray family only (warm OR cool) — never mix warm and cool grays in the same design
 - Flat solid background is sterile — specify one of: subtle radial gradient, CSS noise overlay (opacity 0.02-0.04), or mesh gradient
+- UNIQUENESS: Every design brief must produce a distinct visual identity. Two businesses in the same industry must NOT look like the same template with swapped text. If a suggested palette is provided, use it as the base — it was chosen specifically for this business.
 
 FONTS:
 - Banned: Inter, Roboto, Arial, Open Sans, Helvetica
@@ -1679,7 +1718,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     print(f"[demo] Generating design brief for lead {lead_id}...")
     # Pick animation assignments + palette once — shared between brief (Sonnet) and codegen (Fable)
     picked_animations = _pick_animations(category, k=6)
-    suggested_palette = _get_suggested_palette(category)
+    suggested_palette = _get_suggested_palette(category, seed=lead.get("name", "") + lead.get("website", ""))
     scraped_colors = content.get("colors") or []
 
     ref_design_analyses = [s.get("design_analysis") for s in selected_sites if s.get("design_analysis")]
