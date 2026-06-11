@@ -40,8 +40,6 @@ def score_lead(lead: dict) -> dict:
     # Penalties
     if mobile is not None and mobile > 80:
         score -= 3
-    if cms and "custom" in cms and not any(c in cms for c in ["wix", "jimdo", "squarespace"]):
-        score -= 2
     if (lead.get("google_reviews") or 0) < 5:
         score -= 1
 

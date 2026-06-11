@@ -39,7 +39,9 @@ async def analyze_pagespeed_batch(urls: list[str], max_concurrent: int = 2) -> d
                 desktop = await _fetch(client, url, "desktop")
                 await asyncio.sleep(1)
         flags = []
-        if mobile is not None and mobile < 50:
+        if mobile is None:
+            flags.append("pagespeed_unavailable")
+        elif mobile < 50:
             flags.append("slow_mobile")
         if desktop is not None and desktop < 50:
             flags.append("slow_desktop")
