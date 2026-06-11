@@ -77,6 +77,71 @@ async def _extract_bg_images(page) -> list[str]:
     return urls or []
 
 
+async def _analyze_design_patterns(page) -> dict:
+    """Detect fonts, animation libs, transitions, and layout type of the current site."""
+    try:
+        return await page.evaluate("""
+            () => {
+                // Loaded Google Fonts / custom fonts
+                const fonts = [];
+                try {
+                    for (const f of document.fonts) {
+                        if (f.status === 'loaded' && f.family)
+                            fonts.push(f.family.replace(/['"]/g, '').trim());
+                    }
+                } catch(e) {}
+
+                // Animation libraries in global scope
+                const libMap = {
+                    gsap: typeof window.gsap !== 'undefined',
+                    aos: typeof window.AOS !== 'undefined',
+                    wow: typeof window.WOW !== 'undefined',
+                    swiper: typeof window.Swiper !== 'undefined',
+                    scrollReveal: typeof window.ScrollReveal !== 'undefined',
+                    animateCSS: !!document.querySelector('.animate__animated'),
+                };
+                const animLibs = Object.keys(libMap).filter(k => libMap[k]);
+
+                // CSS transitions on interactive elements
+                const transitions = new Set();
+                for (const el of document.querySelectorAll('a,button,[class*="btn"],[class*="card"]')) {
+                    const t = getComputedStyle(el).transition;
+                    if (t && t !== 'all 0s ease 0s' && t !== 'none 0s ease 0s 0s')
+                        transitions.add(t);
+                    if (transitions.size >= 3) break;
+                }
+
+                // Dominant layout type
+                let gridCount = 0, flexCount = 0;
+                for (const el of document.querySelectorAll('section,main,article,.container,[class*="row"]')) {
+                    const d = getComputedStyle(el).display;
+                    if (d === 'grid' || d === 'inline-grid') gridCount++;
+                    if (d === 'flex' || d === 'inline-flex') flexCount++;
+                }
+
+                // Body background color (rough dark/light hint)
+                const bodyBg = getComputedStyle(document.body).backgroundColor;
+
+                // Scroll-based animation: check for scroll event listeners indirectly
+                const hasScrollAnim = animLibs.length > 0 || !!document.querySelector(
+                    '[data-aos],[data-wow],[data-sal],[class*="fadein"],[class*="fade-in"],[class*="slide-up"]'
+                );
+
+                return {
+                    fonts: [...new Set(fonts)].slice(0, 6),
+                    animLibs,
+                    hasScrollAnimations: hasScrollAnim,
+                    hasTransitions: transitions.size > 0,
+                    sampleTransitions: [...transitions].slice(0, 2),
+                    layoutType: gridCount > flexCount ? 'grid-dominant' : 'flex-dominant',
+                    bodyBg,
+                };
+            }
+        """) or {}
+    except Exception:
+        return {}
+
+
 async def scrape_website_content(url: str) -> dict:
     """
     Visit `url` and extract all content useful for demo generation.
@@ -233,10 +298,11 @@ async def scrape_website_content(url: str) -> dict:
             result["screenshot_b64"] = lead_shots[0] if lead_shots else ""
             result["screenshots"] = lead_shots
 
-            # Colors + images + CSS background images
+            # Colors + images + CSS background images + design pattern analysis
             result["colors"] = await _extract_colors(page)
             result["images"] = await _extract_images(page)
             result["bg_images"] = await _extract_bg_images(page)
+            result["design_analysis"] = await _analyze_design_patterns(page)
 
             # Services: look for list items, short paragraphs near keywords
             services_raw = await page.evaluate("""

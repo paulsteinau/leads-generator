@@ -102,6 +102,22 @@ with "// rest of code" or similar. A partial output is a broken output.
 - Import: `import { motion, useScroll, useTransform, useInView, useSpring, useReducedMotion, AnimatePresence } from 'motion/react'`
 - Every section entry MUST animate on scroll — no element appears statically.
   Pattern: initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }}
+
+## ANIMATION VARIETY — MANDATORY
+Each major section uses a DIFFERENT animation technique. Using the same pattern in 2+ consecutive sections = broken output.
+Assign techniques to sections in this order (never repeat adjacent techniques):
+
+1. HERO: Staggered curtain — headline words cascade in with `opacity: 0, y: 60` staggered at 120ms. CTA button enters last with `scale: 0.9, opacity: 0`.
+2. SERVICES/LEISTUNGEN: Alternating directions — odd cards from `x: -60, opacity: 0`, even cards from `x: 60, opacity: 0`. Never all from below.
+3. ÜBER UNS / ABOUT: GSAP ScrollTrigger — image pinned on one side while text paragraphs reveal sequentially as user scrolls.
+4. BEWERTUNGEN / TESTIMONIALS: Horizontal marquee (infinite loop CSS animation) OR staggered pop-in from `scale: 0.85, opacity: 0` with spring physics.
+5. STATS / NUMBERS: Count-up on entry — use useEffect + IntersectionObserver to animate numbers from 0 to final value over 1200ms.
+6. FAQ / ACCORDION: Expand with `AnimatePresence` + `height: 0 → auto` via layout animation. Each answer slides down.
+7. KONTAKT / CTA SECTION: Simple `opacity: 0, y: 24 → opacity: 1, y: 0` (calm — this section closes, don't compete with hero).
+8. FOOTER: No animation. Users are done — don't distract.
+
+If the page doesn't have all 8 section types, apply the techniques to whatever sections exist, still using different techniques for each.
+
 - ALWAYS custom cubic-bezier — NEVER linear, ease, ease-in-out built-ins:
   - Scroll reveals: { duration: 0.7, ease: [0.16, 1, 0.3, 1] }
   - UI interactions: { duration: 0.5, ease: [0.23, 1, 0.32, 1] }

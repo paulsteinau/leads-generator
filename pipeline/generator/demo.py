@@ -152,7 +152,7 @@ MOOD ADJECTIVES:
 Output ONLY the requested brief fields. No preamble, no markdown headers, no explanation."""
 
 
-def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None) -> str:
+def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None) -> str:
     css_summary = ""
     if ref_css.get("computed"):
         parts = []
@@ -191,6 +191,45 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
     if category in _SERIF_CATEGORIES:
         serif_hint = f"Font note: {category} is a traditional profession — a serif heading font (Fraunces, Playfair Display, Cormorant Garamond) paired with a sans body is appropriate and differentiating."
 
+    # Build current-site design analysis block for the brief
+    analysis_block = ""
+    if design_analysis:
+        da = design_analysis
+        fonts_found = da.get("fonts") or []
+        banned_fonts = [f for f in fonts_found if any(b in f for b in ["Inter", "Roboto", "Arial", "Open Sans", "Helvetica"])]
+        ok_fonts = [f for f in fonts_found if f not in banned_fonts]
+        libs = da.get("animLibs") or []
+        has_anim = da.get("hasScrollAnimations", False)
+        has_transitions = da.get("hasTransitions", False)
+        layout = da.get("layoutType", "unknown")
+
+        font_note = ""
+        if banned_fonts:
+            font_note = f"Current site uses BANNED fonts ({', '.join(banned_fonts)}) — replace with premium alternatives."
+        elif ok_fonts:
+            font_note = f"Current site uses: {', '.join(ok_fonts)} — consider keeping or upgrading."
+        else:
+            font_note = "Current site fonts: not detected (likely system fonts)."
+
+        anim_note = ""
+        if not has_anim and not libs:
+            anim_note = "Current site is STATIC — zero animations. Our redesign must be dramatically more dynamic and engaging."
+        elif libs:
+            anim_note = f"Current site uses: {', '.join(libs)}. Our redesign improves on this with motion/react + GSAP."
+        else:
+            anim_note = "Current site has basic scroll animations. Our redesign must be significantly more polished."
+
+        transition_note = "No CSS transitions found — all interactive elements feel dead." if not has_transitions else "Some CSS transitions present."
+        layout_note = f"Current layout: {layout}."
+
+        analysis_block = (
+            f"\n## Current Site Design Analysis (use as contrast — our redesign must be dramatically better)\n"
+            f"- Fonts: {font_note}\n"
+            f"- Animations: {anim_note}\n"
+            f"- Interactions: {transition_note}\n"
+            f"- Layout: {layout_note}\n"
+        )
+
     # Randomly select archetypes to force visual variance between generations
     vibe = random.choice(_VIBE_ARCHETYPES)
     layout = random.choice(_LAYOUT_ARCHETYPES)
@@ -203,7 +242,8 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"Business: {lead.get('name', '')} ({category}) in {lead.get('district', 'Berlin')}\n"
         f"{services_preview}\n{about_preview}\n{rating_info}\n\n"
         f"{mode_hint}\n"
-        f"{serif_hint}\n\n"
+        f"{serif_hint}\n"
+        f"{analysis_block}\n"
         f"Category inspiration (do NOT copy directly — use as mood reference only):\n{inspiration}\n\n"
         f"{css_summary}\n\n"
         f"FORCED DESIGN DIRECTION for this generation (implement exactly):\n"
@@ -223,6 +263,82 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"- Standout element: confirm the animation from above + one sentence on implementation\n\n"
         f"Max 180 words. These values go directly into React/CSS code — be precise."
     )
+
+
+def _post_process_jsx(jsx: str, design_brief: str = "") -> tuple[str, list[str]]:
+    """
+    Deterministic quality pass on generated App.jsx.
+    Returns (fixed_jsx, list_of_warnings).
+    Applies regex fixes for banned patterns; warns on brief non-compliance.
+    """
+    warnings = []
+    original_len = len(jsx)
+
+    # --- Regex auto-fixes (no LLM, deterministic) ---
+
+    # 1. Em-dash and en-dash → hyphen
+    em_count = jsx.count("—") + jsx.count("–")
+    if em_count:
+        jsx = jsx.replace("—", "-").replace("–", "-")
+        warnings.append(f"AUTO-FIXED: {em_count} em/en-dashes replaced with hyphens")
+
+    # 2. height: 100vh → minHeight: '100dvh' (JSX style objects)
+    vh_jsx = len(re.findall(r"height:\s*['\"]100vh['\"]", jsx))
+    if vh_jsx:
+        jsx = re.sub(r"height:\s*'100vh'", "minHeight: '100dvh'", jsx)
+        jsx = re.sub(r'height:\s*"100vh"', 'minHeight: "100dvh"', jsx)
+        warnings.append(f"AUTO-FIXED: {vh_jsx} height:100vh → minHeight:100dvh (iOS Safari fix)")
+
+    # 3. h-screen Tailwind class → min-h-[100dvh]
+    hscreen_count = jsx.count("h-screen")
+    if hscreen_count:
+        jsx = jsx.replace("h-screen", "min-h-[100dvh]")
+        warnings.append(f"AUTO-FIXED: {hscreen_count} h-screen → min-h-[100dvh]")
+
+    # 4. ease-in-out in inline styles / transition strings (not in comments)
+    ease_count = len(re.findall(r"ease-in-out(?!['\"]?\s*,?\s*//)", jsx))
+    if ease_count:
+        jsx = re.sub(r"ease-in-out", "cubic-bezier(0.16, 1, 0.3, 1)", jsx)
+        warnings.append(f"AUTO-FIXED: {ease_count} ease-in-out → custom cubic-bezier")
+
+    # 5. source.unsplash.com (shut down) → picsum.photos
+    unsplash_count = jsx.count("source.unsplash.com")
+    if unsplash_count:
+        jsx = re.sub(
+            r'https://source\.unsplash\.com/(\d+x\d+)/\?([^"\'>\s]+)',
+            lambda m: f"https://picsum.photos/seed/{m.group(2).split(',')[0].replace('&', '-')}/{m.group(1).replace('x', '/')}",
+            jsx,
+        )
+        warnings.append(f"AUTO-FIXED: {unsplash_count} dead Unsplash URLs → Picsum")
+
+    # --- Design brief compliance checks (warnings only) ---
+    if design_brief:
+        # Extract hex colors from brief
+        brief_hexes = re.findall(r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b', design_brief)
+        if brief_hexes:
+            missing = [h for h in brief_hexes[:5] if f"#{h}" not in jsx and h.lower() not in jsx.lower()]
+            if len(missing) > len(brief_hexes) // 2:
+                warnings.append(f"BRIEF COMPLIANCE: {len(missing)}/{len(brief_hexes)} brief hex colors not found in code ({', '.join('#'+h for h in missing[:3])})")
+
+        # Check if brief font appears in code
+        brief_fonts = re.findall(r"(?:heading font|body font|font pairing)[^\n]*?([A-Z][a-zA-Z\s]+(?:Grotesk|Display|Sans|Serif|Mono)?)", design_brief)
+        for font in brief_fonts[:2]:
+            font_clean = font.strip()
+            if font_clean and font_clean not in jsx and font_clean.replace(" ", "+") not in jsx:
+                warnings.append(f"BRIEF COMPLIANCE: Font '{font_clean}' from brief not found in code")
+
+    # --- Animation variety check ---
+    initial_patterns = re.findall(r'initial=\{\{([^}]+)\}\}', jsx)
+    unique_initials = set(p.strip() for p in initial_patterns)
+    if len(initial_patterns) > 3 and len(unique_initials) < 2:
+        warnings.append(f"ANIMATION VARIETY: All {len(initial_patterns)} scroll animations use the same initial state — lacks variety")
+
+    if warnings:
+        print(f"[post-process] {len(warnings)} issues found/fixed in App.jsx ({original_len} → {len(jsx)} chars):")
+        for w in warnings:
+            print(f"  {'✓' if 'AUTO-FIXED' in w else '⚠'} {w}")
+
+    return jsx, warnings
 
 
 def _build_codegen_prompt(
@@ -388,14 +504,16 @@ The Nav must link to all routes and show the active route visually.
     cat = lead.get("category", "") or ""
     kw = _CATEGORY_KEYWORDS.get(cat, {"hero": f"{cat},business,professional", "service": f"{cat},service", "about": "office,professional,team", "team": "team,professional"})
 
-    unsplash_block = (
+    cat_slug = cat.lower().replace(" ", "-").replace("/", "-")
+    picsum_block = (
         f"## Placeholder Images (use where no real images available)\n"
-        f"These are contextually matched to this business category — use them:\n"
-        f"Hero/Banner: https://source.unsplash.com/1600x900/?{kw['hero']}\n"
-        f"Service 1: https://source.unsplash.com/800x600/?{kw['service']}\n"
-        f"Service 2: https://source.unsplash.com/800x600/?{kw['service']},2\n"
-        f"Service 3: https://source.unsplash.com/800x600/?{kw['service']},3\n"
-        f"About/Team: https://source.unsplash.com/1200x800/?{kw['about']}\n"
+        f"Use Picsum with descriptive seeds — apply style={{{{ filter: 'grayscale(15%) contrast(1.08)' }}}} to every Picsum image:\n"
+        f"Hero/Banner: https://picsum.photos/seed/{cat_slug}-hero/1600/900\n"
+        f"Service 1: https://picsum.photos/seed/{cat_slug}-service-a/800/600\n"
+        f"Service 2: https://picsum.photos/seed/{cat_slug}-service-b/800/600\n"
+        f"Service 3: https://picsum.photos/seed/{cat_slug}-service-c/800/600\n"
+        f"About/Team: https://picsum.photos/seed/{cat_slug}-team/1200/800\n"
+        f"Never use source.unsplash.com — that endpoint is shut down.\n"
     )
 
     return f"""
@@ -433,7 +551,7 @@ Main page text:
 
 {image_section}
 
-{unsplash_block}
+{picsum_block}
 
 {weakness_section}
 
@@ -946,7 +1064,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     _set_sub_stage(conn, lead_id, "design_brief")
     print(f"[demo] Generating design brief for lead {lead_id}...")
     design_brief = claude_p(
-        prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured),
+        prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured, content.get("design_analysis")),
         system=_BRIEF_SYSTEM_PROMPT,
         model="claude-sonnet-4-6",
         max_tokens=700,
@@ -1002,6 +1120,9 @@ def generate_demo(lead: dict, conn) -> str | None:
     if app_jsx.startswith("```"):
         app_jsx = re.sub(r'^```[^\n]*\n', '', app_jsx)
         app_jsx = re.sub(r'\n```$', '', app_jsx)
+
+    # Post-process: auto-fix banned patterns + brief compliance check
+    app_jsx, _post_warnings = _post_process_jsx(app_jsx, design_brief)
 
     # Warn if output was exactly max_tokens — likely truncated
     approx_out_tokens = len(app_jsx) // 4
