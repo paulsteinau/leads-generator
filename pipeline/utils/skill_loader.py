@@ -183,14 +183,24 @@ Available techniques (you will find the assignment in the brief — these are de
 - Use real business data from the brief. Use actual service names, real district, real contact details.
 - Never invent facts. Never use fake round numbers.
 
+## TRUST SIGNALS — mandatory on every SMB website
+These are not optional extras. A prospect who doesn't know this business must trust them within 30 seconds.
+- Google rating badge (stars + review count) visible within first viewport — never below the fold
+- Phone number in Nav (top right), Hero section, AND footer. Three placements minimum.
+- "Seit [year]" or "X Jahre Erfahrung" in hero or directly below it if founding year is known
+- Certifications, professional memberships, awards: displayed as icon badges (ShieldCheck, Medal, Trophy) — never plain text buried in a paragraph
+- Testimonials: star-rated review cards with reviewer name — minimum 3, never a plain blockquote
+- Primary CTA ("Termin vereinbaren", "Jetzt anfragen") above the fold, after Leistungen, and in Kontakt — three placements
+- Address with map-pin icon in Kontakt AND footer
+
 ## REQUIRED SECTIONS (in order)
-1. Sticky nav: business name as logo + nav links + CTA button
-2. Hero: min-h-[100dvh], strong headline (max 2-3 lines) + subline + primary CTA, real or Picsum hero image
+1. Sticky nav: business name as logo + nav links + phone number (top right) + CTA button
+2. Hero: min-h-[100dvh], strong headline (max 2-3 lines) + subline + primary CTA + Google rating badge if available, real or Picsum hero image
 3. Leistungen/Services: at least 3 cards from actual services (bento or zigzag — never 3-col equal)
-4. Warum wir / Über uns: genuine copy from scraped content
-5. Bewertungen: Google rating + stars + any testimonials found
-6. Kontakt: real phone, email, address + contact form
-7. Footer: business name, address, links
+4. Warum wir / Über uns: genuine copy from scraped content + years in business + certifications as badges
+5. Bewertungen: Google rating + stars + testimonial cards (min 3, with star rating + name + quote)
+6. Kontakt: real phone, email, address + map pin + contact form + CTA
+7. Footer: business name, address, phone, links
 
 ## PRE-FLIGHT (silent check before outputting)
 - Zero em-dashes in entire output
@@ -204,6 +214,8 @@ Available techniques (you will find the assignment in the brief — these are de
 - text-wrap: balance on all headings
 - overflow-x-hidden on <main>
 - Google Fonts imported at top
+- Phone number appears in nav, hero, AND footer
+- Google rating badge visible above the fold
 - App.jsx starts with all imports, ends with export default App"""
 
 

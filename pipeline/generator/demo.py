@@ -61,7 +61,9 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
         f"- testimonials: list of customer quote strings found verbatim (max 5)\n"
         f"- phone: phone number string or null\n"
         f"- email: email address string or null\n"
-        f"- opening_hours: string description if found, else null\n\n"
+        f"- opening_hours: string description if found, else null\n"
+        f"- founding_year: integer year the business was founded/established, or null if not found\n"
+        f"- certifications: list of strings — any professional certifications, memberships, awards, quality seals, or associations mentioned (e.g. 'Mitglied der Rechtsanwaltskammer Berlin', 'TÜV-zertifiziert', 'Meisterbetrieb'). Empty list if none found.\n\n"
         f"Website text:\n{combined}"
     )
 
@@ -1248,6 +1250,8 @@ Email: {email}
 {f"Opening hours: {opening_hours}" if opening_hours else ""}
 Website: {lead.get('website', '')}
 Google Rating: {lead.get('google_rating', '')} ({lead.get('google_reviews', '')} Bewertungen)
+{f"Founded: {structured.get('founding_year')}" if structured.get('founding_year') else ""}
+{("Certifications / Memberships: " + " | ".join(structured.get('certifications', []))) if structured.get('certifications') else ""}
 
 ## About This Business
 {about_text or content.get('description', '') or 'No about text found.'}
@@ -1383,6 +1387,26 @@ This website must look VISUALLY DISTINCT from any other website in the same cate
 - Kontakt section must show phone, email, address, and a styled contact form
 - COMPLETENESS IS MANDATORY: generate the full implementation, minimum 900 lines of JSX
 - Do NOT truncate, abbreviate, or simplify any section to save tokens — a complete site is required
+
+## TRUST ARCHITECTURE — mandatory for every output
+This website is a sales tool. A prospect who has never heard of this business must trust them enough to call or book within 30 seconds of landing. Implement ALL of these:
+
+- Google Rating: display prominently within the first scroll — star rating + number of reviews as a visible badge (e.g. in hero or immediately below). Never hide it. If rating >= 4.5, make it a hero element.
+- Years in business: if founding_year is provided, show "Seit [year]" or "Über X Jahre Erfahrung" in the hero or directly below it — not buried in the About section.
+- Certifications/Memberships: if any certifications are listed above, display them as trust badges with icons — ShieldCheck, Medal, Trophy, or Certificate icon from Phosphor. Never skip them.
+- Phone number: must appear in the Nav (top right), in the Hero section, AND in the footer. Three times minimum.
+- Address: must appear in the Kontakt section and the footer with a visual map pin icon.
+- Testimonials: if any exist, they must be styled as proper review cards with star rating, reviewer name, and quote — not a plain blockquote. Minimum 3 testimonials displayed.
+- Primary CTA: "Termin vereinbaren" or "Jetzt anfragen" must appear above the fold, AND after the Leistungen section, AND in the final Kontakt section.
+
+## TRUST PRE-FLIGHT (silent check before outputting)
+Answer mentally before generating:
+1. Can a stranger immediately see what this business does? (hero headline)
+2. Can they immediately see where the business is? (district + address visible above fold)
+3. Can they see proof others trust this business? (rating/reviews/testimonials visible without scrolling)
+4. Can they contact the business in one click from anywhere on the page? (phone in nav)
+5. Are all certifications and memberships displayed as visible trust signals?
+If any answer is NO — fix it before outputting.
 """.strip()
 
 
