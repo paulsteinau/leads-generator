@@ -168,13 +168,36 @@ Available techniques (you will find the assignment in the brief — these are de
   Apply CSS filters to prevent boring stock look: style={{ filter: 'grayscale(15%) contrast(1.08)' }}
   Always: object-fit cover, explicit dimensions, loading="lazy" (hero = loading="eager").
   Alt text on all meaningful images — never alt="" or alt="image" on content images.
-- Cards: Double-Bezel pattern — outer wrapper with ring-1 ring-white/10 p-1.5 rounded-[2rem] bg-white/5,
-  inner content div with own background, shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)],
-  and radius rounded-[calc(2rem-0.375rem)]. Concentric radii are mandatory.
+- Cards: Double-Bezel pattern — outer wrapper with ring-1 ring-white/10 p-1.5 bg-white/5,
+  inner content div with own background, shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)].
+  Concentric radii are mandatory — BUT the radius scale MUST match the category (see RADIUS SYSTEM below).
 - Button-in-button trailing icon: arrow/icon beside CTA text is NEVER naked. Nest it inside its own
   w-8 h-8 rounded-full bg-white/10 circle placed flush with the button's right inner padding.
 - Primary CTAs: rounded-full px-6 py-3. Hover: whileHover={{ scale: 1.02 }}. Active: whileTap={{ scale: 0.97 }}.
 - Glassmorphism nav: backdrop-blur-xl bg-white/5 border border-white/10 rounded-full.
+
+## RADIUS SYSTEM — category-aware, applied consistently across the entire page
+Pick ONE radius tier based on category. NEVER mix tiers on the same page.
+
+SHARP — formal professions (Anwalt, Notar, Steuerberater, Wirtschaftsprüfer, Architekt):
+  Cards: rounded-xl (12px) | Images: rounded-lg (8px) or no rounding for full-bleed | Inputs: rounded-md (6px)
+  BANNED on formal sites: rounded-2xl, rounded-3xl, rounded-[2rem], rounded-[3rem] — looks like a mobile app, not a law firm.
+
+MEDIUM — medical, trade, real estate, most services (Arzt, Zahnarzt, Handwerker, Immobilienmakler):
+  Cards: rounded-2xl (16px) | Images: rounded-xl (12px) | Inputs: rounded-lg (8px)
+  BANNED on medium sites: rounded-[2rem] or larger — still too soft for a professional service.
+
+SOFT — beauty, wellness, lifestyle (Kosmetik, Friseur, Massage, Nagelstudio):
+  Cards: rounded-2xl to rounded-3xl | Images: rounded-2xl | Inputs: rounded-xl
+
+EXPRESSIVE — creative, nightlife, art (Tattoo, Bar, Club, Fotograf, Florist, DJ):
+  Cards: rounded-[2rem] allowed | Images: rounded-2xl or object-cover overflow-hidden | Inputs: rounded-xl
+
+Images specifically — NEVER over-round:
+  Hero images: NO rounding (full-bleed, edge-to-edge, object-cover)
+  Card thumbnail images: ONE tier below the card radius (card=rounded-xl → image=rounded-lg)
+  Portrait/avatar images: rounded-full ONLY if they are square 1:1 ratio
+  Landscape images in cards: never rounded-full, never rounded-[2rem]
 
 ## GERMAN COPY RULES
 - All user-facing text in German.

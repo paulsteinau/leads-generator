@@ -564,6 +564,7 @@ FORMAL PROFESSION — PREMIUM DESIGN RULES (non-negotiable):
 - UNIQUENESS RULE: NEVER default to navy background + gold accent for legal/formal sites — that is the generic AI cliche. The suggested palette was chosen specifically for this business. Use it. If the palette is dark burgundy, use burgundy. If it's stone editorial, use stone.
 - Imagery: architectural detail shots, texture close-ups, material photography. NO generic smiling stock people, NO generic handshake photos.
 - Layout: editorial and asymmetric. No equal-column feature grids, no bento chaos. Clean hierarchy, generous whitespace.
+- Radius: SHARP tier only. Cards max rounded-xl (12px). Images max rounded-lg (8px) or no rounding. Inputs rounded-md. NEVER rounded-2xl, rounded-3xl, rounded-[2rem] or larger — those radii belong on consumer apps, not professional service firms.
 - Motion: restrained — blur-emerge, text-scrub, gsap-pin-text, scale-reveal preferred. No spring-pop, no typewriter.
 - Copy tone: authoritative, specific, understated. "Seit 1998 vertreten wir Mandanten" not "Wir sind Ihr Partner."
 - Spacing: very generous. py-32 md:py-40 minimum on hero. Whitespace communicates premium.
