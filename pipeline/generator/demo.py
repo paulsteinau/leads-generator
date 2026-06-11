@@ -769,7 +769,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         prompt=prompt,
         system=design_system,
         model="claude-fable-5",
-        max_tokens=20000,
+        max_tokens=40000,
         conn=conn,
         lead_id=lead_id,
         stage="demo_gen",
@@ -782,6 +782,11 @@ def generate_demo(lead: dict, conn) -> str | None:
     if app_jsx.startswith("```"):
         app_jsx = re.sub(r'^```[^\n]*\n', '', app_jsx)
         app_jsx = re.sub(r'\n```$', '', app_jsx)
+
+    # Warn if output was exactly max_tokens — likely truncated
+    approx_out_tokens = len(app_jsx) // 4
+    if approx_out_tokens >= 39000:
+        print(f"[demo] WARNING: Fable output ~{approx_out_tokens} tokens — may be truncated even at 40k limit")
 
     # Stage 8.5: Haiku — JSX pre-flight validation
     _set_sub_stage(conn, lead_id, "jsx_validation")
