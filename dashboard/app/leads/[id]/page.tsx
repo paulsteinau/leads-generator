@@ -56,10 +56,9 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 export default async function LeadPage({ params }: { params: { id: string } }) {
-  const [lead, leadCosts] = await Promise.all([
-    getLead(Number(params.id)),
-    getLeadCosts(Number(params.id)),
-  ]);
+  const lead = await getLead(Number(params.id));
+  let leadCosts = null;
+  try { leadCosts = await getLeadCosts(Number(params.id)); } catch {}
 
   const tier = lead.lead_tier ?? "low";
   const tc = TIER_COLORS[tier] ?? TIER_COLORS.low;
@@ -273,23 +272,45 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           {lead.stage === "ready_for_review" && <ReviewPanel lead={lead} />}
           <EmailPanel lead={lead} />
 
-          {leadCosts.total_usd > 0 && (
+          {leadCosts && leadCosts.total_usd > 0 && (
             <SectionCard title="API-Kosten">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-500">Gesamt</span>
-                <span className="font-mono font-bold text-sm text-amber-600">${leadCosts.total_usd.toFixed(4)}</span>
+              {/* Grand total */}
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                <span className="text-xs font-semibold text-gray-500">Gesamt</span>
+                <span className="font-mono font-bold text-base text-amber-600">${leadCosts.total_usd.toFixed(4)}</span>
               </div>
+
               {leadCosts.generations.map((gen) => (
-                <div key={gen.generation} className="mb-2 last:mb-0">
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-gray-400 font-medium">Generation {gen.generation}</span>
-                    <span className="font-mono text-gray-600">${gen.total_usd.toFixed(4)}</span>
+                <div key={gen.generation} className="mb-4 last:mb-0">
+                  {/* Generation header */}
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span className="font-semibold text-gray-600">Generation {gen.generation}</span>
+                    <span className="font-mono font-bold text-amber-500">${gen.total_usd.toFixed(4)}</span>
                   </div>
-                  <div className="space-y-0.5 pl-2 border-l border-gray-100">
+
+                  {/* Stage rows */}
+                  <div className="space-y-2 pl-2 border-l-2 border-gray-100">
                     {gen.stages.map((s, i) => (
-                      <div key={i} className="flex justify-between text-[11px] text-gray-400">
-                        <span>{s.stage ?? "—"} <span className="text-gray-300">({s.model?.split("-").slice(-2).join("-") ?? "?"})</span></span>
-                        <span className="font-mono">${s.cost_usd.toFixed(4)}</span>
+                      <div key={i} className="text-[11px]">
+                        {/* Stage name + cost */}
+                        <div className="flex justify-between items-baseline mb-0.5">
+                          <span className="font-medium text-gray-500">{s.stage ?? "—"}</span>
+                          <span className="font-mono font-semibold text-gray-700">${s.cost_usd.toFixed(4)}</span>
+                        </div>
+                        {/* Model */}
+                        <div className="text-gray-300 mb-0.5">{s.model ?? "?"}</div>
+                        {/* Token counts */}
+                        <div className="flex gap-2 text-gray-300 font-mono">
+                          <span>{(s.input_tokens ?? 0).toLocaleString()} in</span>
+                          <span>·</span>
+                          <span>{(s.output_tokens ?? 0).toLocaleString()} out</span>
+                          {(s.cache_read_tokens ?? 0) > 0 && (
+                            <><span>·</span><span className="text-green-400">{s.cache_read_tokens.toLocaleString()} cached↓</span></>
+                          )}
+                          {(s.cache_write_tokens ?? 0) > 0 && (
+                            <><span>·</span><span className="text-blue-300">{s.cache_write_tokens.toLocaleString()} cached↑</span></>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
