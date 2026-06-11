@@ -379,20 +379,25 @@ def approve_email(lead_id: int, body: ApproveEmailRequest):
     row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
     if not row:
         raise HTTPException(404, "Lead not found")
-    conn.execute(
-        "UPDATE leads SET email_approved=1, email_variant=?, status='contacted',"
-        " updated_at=datetime('now') WHERE id=?",
-        (body.variant, lead_id),
-    )
-    if row["website"]:
-        domain = urlparse(row["website"]).netloc
-        body_text = row["email_body_a"] if body.variant == "a" else row["email_body_b"]
+    try:
+        conn.execute("BEGIN")
         conn.execute(
-            "INSERT INTO email_log (lead_id, domain, sent_at, subject, body)"
-            " VALUES (?,?,datetime('now'),?,?)",
-            (lead_id, domain, row["email_subject"] or "", body_text or ""),
+            "UPDATE leads SET email_approved=1, email_variant=?, status='contacted',"
+            " updated_at=datetime('now') WHERE id=?",
+            (body.variant, lead_id),
         )
-    conn.commit()
+        if row["website"]:
+            domain = urlparse(row["website"]).netloc
+            body_text = row["email_body_a"] if body.variant == "a" else row["email_body_b"]
+            conn.execute(
+                "INSERT INTO email_log (lead_id, domain, sent_at, subject, body)"
+                " VALUES (?,?,datetime('now'),?,?)",
+                (lead_id, domain, row["email_subject"] or "", body_text or ""),
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
     return {"ok": True}
 
 
