@@ -82,6 +82,7 @@ export default function EmailPanel({ lead }: { lead: LeadDetail }) {
             { s: "replied", label: "Geantwortet", color: "bg-green-100 text-green-700" },
             { s: "closed", label: "Abgeschlossen", color: "bg-purple-100 text-purple-700" },
             { s: "ignored", label: "Ignoriert", color: "bg-gray-100 text-gray-400" },
+            { s: "uncontactable", label: "Nicht erreichbar", color: "bg-red-100 text-red-400" },
           ].map(({ s, label, color }) => (
             <button
               key={s}

@@ -44,7 +44,7 @@ export default async function Home({
 }) {
   const [stats, leads, costs] = await Promise.all([getStats(), getLeads(searchParams), getCosts()]);
   const activeTier = searchParams.tier;
-  const activeStatus = searchParams.status;
+  const activeStage = searchParams.stage;
 
   const totalLeads = leads.length;
   const withEmail = leads.filter((l) => l.has_email).length;
@@ -158,7 +158,7 @@ export default async function Home({
             { key: "tier", val: "warm", label: "Warm" },
             { key: "tier", val: "low",  label: "Low" },
           ].map((f) => {
-            const isActive = f.val ? activeTier === f.val : !activeTier && !activeStatus;
+            const isActive = f.val ? activeTier === f.val : !activeTier && !activeStage;
             const href = f.val ? `?tier=${f.val}` : "/";
             return (
               <a
@@ -176,9 +176,9 @@ export default async function Home({
           })}
           <div className="w-px h-4 bg-gray-100 mx-1" />
           <a
-            href="?status=pending_review"
+            href="?stage=ready_for_review"
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-              activeStatus === "pending_review"
+              searchParams.stage === "ready_for_review"
                 ? "bg-orange-500 text-white"
                 : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
             }`}

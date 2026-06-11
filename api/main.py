@@ -377,7 +377,7 @@ def approve_email(lead_id: int, body: ApproveEmailRequest):
 
 @app.post("/leads/{lead_id}/status")
 def update_status(lead_id: int, body: UpdateStatusRequest):
-    allowed = {"contacted", "replied", "closed", "ignored", "new"}
+    allowed = {"contacted", "replied", "closed", "ignored", "new", "uncontactable"}
     if body.status not in allowed:
         raise HTTPException(400, f"status must be one of {allowed}")
     conn = get_conn()
