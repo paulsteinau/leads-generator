@@ -84,7 +84,9 @@ with "// rest of code" or similar. A partial output is a broken output.
 - Buttons: always check contrast. White text on dark bg, dark text on light bg.
 
 ## LAYOUT
-- Hero: min-h-[100dvh]. Split or asymmetric preferred over centered.
+- Hero: min-h-[100dvh]. ALWAYS full-bleed background image (object-fit: cover, position: absolute, inset: 0).
+  Text overlaid on a dark scrim (gradient or rgba overlay). NEVER put the hero image as a side element — it must fill the entire background.
+  Picsum seed image if no real image available. Apply loading="eager" and filter: contrast(1.05) on hero images.
 - Nav: floating glass pill — mt-6 mx-auto w-max rounded-full backdrop-blur-xl bg-white/5 border border-white/10.
   NOT an edge-to-edge sticky navbar glued to the top. Max height 72px.
 - Wrap entire page: <main className="overflow-x-hidden w-full max-w-full"> — prevents horizontal scroll

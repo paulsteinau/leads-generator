@@ -102,11 +102,11 @@ _LAYOUT_ARCHETYPES = [
     "Horizontal Magazine: full-width alternating sections that each use a completely different layout family (no zigzag repetition), section-by-section compositional variety",
 ]
 _HERO_PARADIGMS = [
-    "Asymmetric Split Hero — text on one side, hero image on the other, bold headline left-aligned",
-    "Scroll-Pinned Hero — hero stays pinned while content slides up behind it (GSAP pin)",
-    "Editorial Manifesto Hero — large kinetic type, no asset, almost-poster feel",
-    "Full-Bleed Photo Hero — edge-to-edge image, text overlay with scrim, bold single headline",
-    "Curtain-Reveal Hero — parts animate in on load like a curtain parting",
+    "Full-Bleed Scrim Hero — edge-to-edge background image (object-fit: cover, min-h-[100dvh]), gradient scrim from bottom (rgba(0,0,0,0) → rgba(0,0,0,0.7)), bold headline + subline centered or left-aligned over image",
+    "Parallax Photo Hero — full-bleed background image scrolls at 0.5x speed via GSAP/useTransform, foreground headline at 1x — cinematic depth. Image fills 100% width and 110% height to allow parallax movement",
+    "Split-Overlay Hero — full-bleed background image covers entire hero, semi-transparent dark card (bg-black/50 backdrop-blur-sm) anchored to the left half contains all text. Right half shows raw image",
+    "Pin-Reveal Hero — full-bleed background image, GSAP ScrollTrigger pins the hero while content sections scroll up over it revealing the image progressively from top to bottom",
+    "Curtain-Reveal Hero — full-bleed background image hidden behind a solid color curtain that slides away on load (clip-path or transform), revealing the photo dramatically as the headline fades in",
 ]
 _MOTION_LEVELS = [6, 7, 7, 8]  # weighted toward higher motion
 
