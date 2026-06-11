@@ -121,6 +121,13 @@ export const updateStatus = (id: number, status: string) =>
     body: JSON.stringify({ status }),
   });
 
+export const updateNotes = (id: number, notes: string) =>
+  fetch(`${API}/leads/${id}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ notes }),
+  }).then((r) => r.json());
+
 export const updateEmail = (id: number, email: string) =>
   fetch(`${API}/leads/${id}/email`, {
     method: "POST",

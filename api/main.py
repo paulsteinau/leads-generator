@@ -16,7 +16,7 @@ from api.models import (
     ApproveEmailRequest, UpdateStatusRequest, UpdateEmailRequest,
     PendingReviewLead, RegenerateRequest, EditDemoRequest,
     ResendWebhookPayload, UnsubscribeRequest, ManualLeadRequest,
-    SaveReviewRequest,
+    SaveReviewRequest, UpdateNotesRequest,
 )
 
 app = FastAPI(title="Berlin Lead-Gen API")
@@ -405,6 +405,17 @@ def update_status(lead_id: int, body: UpdateStatusRequest):
     conn.execute(
         "UPDATE leads SET status=?, updated_at=datetime('now') WHERE id=?",
         (body.status, lead_id),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
+@app.post("/leads/{lead_id}/notes")
+def update_notes(lead_id: int, body: UpdateNotesRequest):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE leads SET notes=?, updated_at=datetime('now') WHERE id=?",
+        (body.notes, lead_id),
     )
     conn.commit()
     return {"ok": True}

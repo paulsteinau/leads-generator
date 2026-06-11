@@ -121,3 +121,7 @@ class UnsubscribeRequest(BaseModel):
 class SaveReviewRequest(BaseModel):
     body: Optional[str] = None
     subject: Optional[str] = None
+
+
+class UpdateNotesRequest(BaseModel):
+    notes: Optional[str] = None

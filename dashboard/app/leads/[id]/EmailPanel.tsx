@@ -1,6 +1,35 @@
 "use client";
 import { useState } from "react";
-import { LeadDetail, approveEmail, updateStatus, updateEmail } from "@/lib/api";
+import { LeadDetail, approveEmail, updateStatus, updateEmail, updateNotes } from "@/lib/api";
+
+function NotesField({ leadId, initialNotes }: { leadId: number; initialNotes: string }) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [saved, setSaved] = useState(false);
+
+  const save = async () => {
+    await updateNotes(leadId, notes);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={notes}
+        onChange={(e) => { setNotes(e.target.value); setSaved(false); }}
+        rows={3}
+        className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+        placeholder="Interne Notizen..."
+      />
+      <button
+        onClick={save}
+        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg hover:bg-gray-200 font-medium transition-colors"
+      >
+        {saved ? "Gespeichert ✓" : "Speichern"}
+      </button>
+    </div>
+  );
+}
 
 export default function EmailPanel({ lead }: { lead: LeadDetail }) {
   const [approved, setApproved] = useState(lead.email_approved);
@@ -97,6 +126,12 @@ export default function EmailPanel({ lead }: { lead: LeadDetail }) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Notes */}
+      <div className="bg-white rounded-xl p-5 border">
+        <h2 className="font-semibold text-xs text-gray-400 uppercase tracking-wide mb-3">Notizen</h2>
+        <NotesField leadId={lead.id} initialNotes={lead.notes ?? ""} />
       </div>
 
       {/* Email */}
