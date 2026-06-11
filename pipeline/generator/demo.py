@@ -283,7 +283,7 @@ The Nav must link to all routes and show the active route visually.
             + (f"\nCSS background images (use as hero/section backgrounds):\n{bg_lines}" if bg_lines else "")
         )
     else:
-        image_section = "## Images\nNo real images found — use Picsum placeholders with descriptive seeds."
+        image_section = "## Images\nNo real images found — use the Unsplash placeholder URLs provided below."
 
     # Screenshot context block — label each image by its index
     screenshot_lines = []
@@ -303,6 +303,42 @@ The Nav must link to all routes and show the active route visually.
     screenshot_context = "\n".join(screenshot_lines) + "\n\n" if screenshot_lines else ""
 
     schema_type = SCHEMA_TYPES.get(lead.get("category", ""), "LocalBusiness")
+
+    # Category-specific Unsplash keywords for contextually relevant placeholder images
+    _CATEGORY_KEYWORDS: dict[str, dict[str, str]] = {
+        "Zahnarzt": {"hero": "dental,clinic,teeth", "service": "dentist,treatment", "about": "dental,professional,smile", "team": "doctor,medical,team"},
+        "Arzt": {"hero": "medical,clinic,doctor", "service": "healthcare,medicine", "about": "doctor,professional", "team": "medical,team"},
+        "Physiotherapeut": {"hero": "physiotherapy,treatment", "service": "massage,therapy,exercise", "about": "therapist,wellness", "team": "physiotherapy,professional"},
+        "Restaurant": {"hero": "restaurant,dining,food", "service": "food,dish,meal", "about": "chef,kitchen,cuisine", "team": "restaurant,chef"},
+        "Cafe": {"hero": "cafe,coffee,interior", "service": "coffee,pastry,drink", "about": "barista,cafe", "team": "cafe,barista"},
+        "Friseur": {"hero": "hair,salon,hairdresser", "service": "haircut,styling,hair", "about": "hairdresser,salon", "team": "hairstylist,salon"},
+        "Kosmetik": {"hero": "beauty,salon,skincare", "service": "cosmetic,beauty,treatment", "about": "beauty,professional", "team": "beauty,therapist"},
+        "Fitnessstudio": {"hero": "gym,fitness,workout", "service": "exercise,training,weights", "about": "fitness,trainer", "team": "personal,trainer,fitness"},
+        "Yoga": {"hero": "yoga,meditation,studio", "service": "yoga,pose,wellness", "about": "yoga,instructor", "team": "yoga,teacher"},
+        "Anwalt": {"hero": "law,office,professional", "service": "lawyer,legal,court", "about": "attorney,professional", "team": "lawyer,team"},
+        "Steuerberater": {"hero": "office,business,professional", "service": "finance,accounting,tax", "about": "accountant,professional", "team": "business,team"},
+        "Immobilien": {"hero": "real-estate,building,architecture", "service": "apartment,house,property", "about": "realtor,professional", "team": "real-estate,team"},
+        "Hotel": {"hero": "hotel,lobby,luxury", "service": "hotel,room,bedroom", "about": "hotel,hospitality", "team": "hotel,staff"},
+        "Fotograf": {"hero": "photography,camera,studio", "service": "photography,portrait,wedding", "about": "photographer,professional", "team": "photographer"},
+        "Handwerk": {"hero": "workshop,tools,craftsman", "service": "tools,construction,repair", "about": "craftsman,professional", "team": "craftsman,team"},
+        "Reinigung": {"hero": "cleaning,professional,service", "service": "cleaning,hygiene,tidy", "about": "cleaning,professional", "team": "cleaning,team"},
+        "Tierarzt": {"hero": "veterinary,animal,clinic", "service": "pet,veterinary,care", "about": "veterinarian,animal", "team": "vet,doctor"},
+        "Apotheke": {"hero": "pharmacy,medicine,health", "service": "pharmacy,medicine,pills", "about": "pharmacist,health", "team": "pharmacist,team"},
+        "Optiker": {"hero": "optician,glasses,eyewear", "service": "glasses,eyewear,lens", "about": "optician,professional", "team": "optician,team"},
+        "Fahrschule": {"hero": "driving,car,school", "service": "car,driving,lesson", "about": "driving,instructor", "team": "instructor,team"},
+    }
+    cat = lead.get("category", "") or ""
+    kw = _CATEGORY_KEYWORDS.get(cat, {"hero": f"{cat},business,professional", "service": f"{cat},service", "about": "office,professional,team", "team": "team,professional"})
+
+    unsplash_block = (
+        f"## Placeholder Images (use where no real images available)\n"
+        f"These are contextually matched to this business category — use them:\n"
+        f"Hero/Banner: https://source.unsplash.com/1600x900/?{kw['hero']}\n"
+        f"Service 1: https://source.unsplash.com/800x600/?{kw['service']}\n"
+        f"Service 2: https://source.unsplash.com/800x600/?{kw['service']},2\n"
+        f"Service 3: https://source.unsplash.com/800x600/?{kw['service']},3\n"
+        f"About/Team: https://source.unsplash.com/1200x800/?{kw['about']}\n"
+    )
 
     return f"""
 {screenshot_context}Generate a complete single-file React App.jsx for this German business demo website.
@@ -339,12 +375,7 @@ Main page text:
 
 {image_section}
 
-## Picsum Placeholder Seeds (use for sections without real images)
-Hero: https://picsum.photos/seed/{slug}-hero/1600/900
-Service 1: https://picsum.photos/seed/{slug}-s1/800/600
-Service 2: https://picsum.photos/seed/{slug}-s2/800/600
-Service 3: https://picsum.photos/seed/{slug}-s3/800/600
-About: https://picsum.photos/seed/{slug}-about/1200/800
+{unsplash_block}
 
 {weakness_section}
 
