@@ -1140,15 +1140,31 @@ Content for generated pages: derive from business name, category, and all scrape
         labels = ["hero/nav area", "services/features section", "lower section/footer"]
         for i in range(n_ref_screenshots):
             label = labels[i] if i < len(labels) else f"section {i+1}"
-            screenshot_lines.append(f"Image {idx}: Reference site — {label}. Study the design quality, typography, spacing, and color use.")
+            screenshot_lines.append(
+                f"Image {idx}: REFERENCE SITE ({label}) — "
+                f"Extract: exact color palette, font weight hierarchy, section spacing rhythm, card/button styles, nav pattern. "
+                f"Your output MUST reach or exceed this visual quality. If it wouldn't impress someone who saw this reference, redo it."
+            )
             idx += 1
     if n_lead_screenshots > 0:
         lead_labels = ["hero/nav area", "mid section"]
         for i in range(n_lead_screenshots):
             label = lead_labels[i] if i < len(lead_labels) else f"section {i+1}"
-            screenshot_lines.append(f"Image {idx}: Current lead website — {label}. Dramatically improve this while keeping all real content.")
+            screenshot_lines.append(
+                f"Image {idx}: CURRENT CLIENT SITE ({label}) — "
+                f"This is what they have now. Preserve every real name, service, text, and contact detail. "
+                f"The visual redesign must be dramatically better — same content, premium execution."
+            )
             idx += 1
-    screenshot_context = "\n".join(screenshot_lines) + "\n\n" if screenshot_lines else ""
+
+    if screenshot_lines:
+        preamble = (
+            "MANDATORY: Before writing a single line of JSX, visually analyze ALL attached screenshots.\n"
+            "Reference sites = the quality bar for this category. Client site = content source.\n"
+        )
+        screenshot_context = preamble + "\n".join(screenshot_lines) + "\n\n"
+    else:
+        screenshot_context = ""
 
     schema_type = SCHEMA_TYPES.get(lead.get("category", ""), "LocalBusiness")
 
