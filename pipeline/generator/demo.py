@@ -751,6 +751,20 @@ def _post_process_jsx(jsx: str, design_brief: str = "") -> tuple[str, list[str]]
         )
         warnings.append(f"AUTO-FIXED: {unsplash_count} dead Unsplash URLs → Picsum")
 
+    # 6. Trailing decimal numbers (e.g. `0.` `1.` without digit after) → add trailing zero
+    #    These cause esbuild "Expected '>' but found '.'" in JSX numeric expressions.
+    trailing_dec = re.findall(r'\b(\d+\.(?!\d))', jsx)
+    if trailing_dec:
+        jsx = re.sub(r'\b(\d+\.)(?!\d)', lambda m: m.group(1) + '0', jsx)
+        warnings.append(f"AUTO-FIXED: {len(trailing_dec)} trailing decimals (0. → 0.0) that would break esbuild")
+
+    # 7. Template placeholder comments inside JSX that break the build:
+    #    {/* image or content block */} etc. left verbatim from code snippets
+    placeholder_count = len(re.findall(r'\{/\*\s*(?:image|content block|item content|card|heading|scrolling content)[^*]*\*/\}', jsx, re.IGNORECASE))
+    if placeholder_count:
+        jsx = re.sub(r'\{/\*\s*(?:image|content block|item content|card|heading|scrolling content)[^*]*\*/\}', '{null}', jsx, flags=re.IGNORECASE)
+        warnings.append(f"AUTO-FIXED: {placeholder_count} empty placeholder comments replaced with {{null}}")
+
     # --- Design brief compliance checks (warnings only) ---
     if design_brief:
         # Extract hex colors from brief
