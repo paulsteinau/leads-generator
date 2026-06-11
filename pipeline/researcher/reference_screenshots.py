@@ -94,7 +94,11 @@ def _fetch_and_cache_site(category: str, url: str, idx: int) -> dict:
     cache_file = _get_site_cache_file(category, idx)
     if cache_file.exists():
         try:
-            return json.loads(cache_file.read_text(encoding="utf-8"))
+            cached = json.loads(cache_file.read_text(encoding="utf-8"))
+            # Re-scrape if cached before design_analysis was added
+            if "design_analysis" in cached:
+                return cached
+            print(f"[ref_screenshots] Cache for {category}[{idx}] missing design_analysis — re-scraping")
         except Exception:
             pass
 
