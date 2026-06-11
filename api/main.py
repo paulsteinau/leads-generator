@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from api.db import get_conn, init_db
 from api.models import (
     LeadSummary, LeadDetail, StatsResponse,
@@ -568,6 +568,21 @@ def trigger_generate_demo(lead_id: int):
         env={**os.environ, "PYTHONPATH": str(ROOT)},
     )
     return {"ok": True, "lead_id": lead_id}
+
+
+@app.get("/leads/{lead_id}/screenshots/{index}")
+def get_screenshot(lead_id: int, index: int):
+    conn = get_conn()
+    row = conn.execute("SELECT demo_screenshots FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row or not row["demo_screenshots"]:
+        raise HTTPException(404, "No screenshots")
+    paths = json.loads(row["demo_screenshots"])
+    if index >= len(paths):
+        raise HTTPException(404, "Screenshot index out of range")
+    path = Path(paths[index])
+    if not path.exists():
+        raise HTTPException(404, "Screenshot file not found")
+    return FileResponse(str(path), media_type="image/png")
 
 
 @app.get("/leads/{lead_id}/demo-status")

@@ -257,7 +257,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
 
           {demoScreenshots.length > 0 && (
             <SectionCard title="Screenshots">
-              <ScreenshotTabs shots={demoScreenshots} labels={SCREENSHOT_LABELS} />
+              <ScreenshotTabs shots={demoScreenshots} labels={SCREENSHOT_LABELS} leadId={lead.id} />
             </SectionCard>
           )}
         </div>

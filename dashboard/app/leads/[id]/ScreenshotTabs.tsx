@@ -1,12 +1,15 @@
 "use client";
 import { useState } from "react";
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 interface Props {
   shots: string[];
   labels: string[];
+  leadId: number;
 }
 
-export default function ScreenshotTabs({ shots, labels }: Props) {
+export default function ScreenshotTabs({ shots, labels, leadId }: Props) {
   const [active, setActive] = useState(0);
 
   return (
@@ -26,9 +29,11 @@ export default function ScreenshotTabs({ shots, labels }: Props) {
           </button>
         ))}
       </div>
-      <code className="block text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 break-all">
-        {shots[active]}
-      </code>
+      <img
+        src={`${API}/leads/${leadId}/screenshots/${active}`}
+        alt={labels[active] ?? `Screenshot ${active + 1}`}
+        className="w-full rounded-lg border border-gray-100"
+      />
     </div>
   );
 }
