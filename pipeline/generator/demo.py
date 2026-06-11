@@ -1196,10 +1196,31 @@ Content for generated pages: derive from business name, category, and all scrape
     brief_mandatory = _extract_brief_mandatory(design_brief)
 
     return f"""
+Generate a complete single-file React App.jsx for this German business demo website.
+
+## ═══════════════════════════════════════════════════════
+## DESIGN DIRECTIVES — READ THESE FIRST, IMPLEMENT EXACTLY
+## ═══════════════════════════════════════════════════════
+
 {animation_checklist}
+
 {brief_mandatory}
-{screenshot_context}Generate a complete single-file React App.jsx for this German business demo website.
+
+## Design Brief — ALL VALUES ARE MANDATORY, NOT SUGGESTIONS
+{design_brief}
+
+## Category Design Inspiration (mood reference — match this energy)
+{inspiration}
+
+## ═══════════════════════════════════════════════════════
+## REFERENCE SCREENSHOTS — STUDY THESE BEFORE CODING
+## ═══════════════════════════════════════════════════════
+{screenshot_context}
 {routes_section}
+
+## ═══════════════════════════════════════════════════════
+## BUSINESS DATA — USE VERBATIM, DO NOT INVENT
+## ═══════════════════════════════════════════════════════
 
 ## Business Info
 Name: {lead.get('name', '')}
@@ -1235,12 +1256,6 @@ Main page text:
 {picsum_block}
 
 {weakness_section}
-
-## Design Brief (implement exactly)
-{design_brief}
-
-## Category Design Inspiration
-{inspiration}
 
 ## SEO & AEO Requirements (implement ALL — non-negotiable)
 
