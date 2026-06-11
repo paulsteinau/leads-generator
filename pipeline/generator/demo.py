@@ -478,6 +478,68 @@ _CATEGORY_TO_PALETTE_BUCKET = {
 }
 
 
+# Per-category style profiles — controls animation count, image mood, and artistic direction
+# k_animations: how many animation techniques to assign (less = more restrained)
+# image_mood: what Picsum seeds and CSS filters to use, injected into brief
+# richness: "editorial" | "balanced" | "showcase" | "expressive" — overall visual density
+# section_emphasis: which sections to visually amplify (injected as brief note)
+_CATEGORY_STYLE_PROFILES: dict[str, dict] = {
+    # ── Legal / finance — restrained editorial, quality over quantity ─────────
+    "Anwalt":            {"k": 4, "richness": "editorial",  "image_mood": "architectural textures, law books, stone facades, natural light through windows — NO stock handshakes or people in suits", "section_emphasis": "Hero + Leistungen (biggest impact), Kontakt (clean form)"},
+    "Rechtsanwalt":      {"k": 4, "richness": "editorial",  "image_mood": "architectural textures, law books, stone facades, natural light through windows — NO stock handshakes or people in suits", "section_emphasis": "Hero + Leistungen (biggest impact), Kontakt (clean form)"},
+    "Notar":             {"k": 4, "richness": "editorial",  "image_mood": "close-up of stamps, official documents, marble surfaces, pen on paper", "section_emphasis": "Hero (authoritative), Leistungen (structured list), Über uns"},
+    "Notariat":          {"k": 4, "richness": "editorial",  "image_mood": "close-up of stamps, official documents, marble surfaces, pen on paper", "section_emphasis": "Hero (authoritative), Leistungen"},
+    "Steuerberater":     {"k": 4, "richness": "editorial",  "image_mood": "clean desk, calculator, financial charts, minimal office — precise and trustworthy", "section_emphasis": "Hero + Leistungen + Über uns"},
+    "Wirtschaftsprüfer": {"k": 4, "richness": "editorial",  "image_mood": "boardroom, data visualization, clean architecture — serious and capable", "section_emphasis": "Hero + Leistungen"},
+    "Unternehmensberater":{"k": 5,"richness": "balanced",   "image_mood": "strategy sessions, whiteboards, city skyline, modern office — energetic but credible", "section_emphasis": "Hero + Leistungen + Stats/Zahlen"},
+    # ── Architekt — editorial but with strong portfolio emphasis ──────────────
+    "Architekt":         {"k": 5, "richness": "showcase",   "image_mood": "architectural photography, building details, clean geometry, construction materials — dramatic angles", "section_emphasis": "Hero (full-bleed project photo), Projekte gallery (largest section), Über uns"},
+    # ── Real estate — lifestyle + architectural ───────────────────────────────
+    "Immobilienmakler":  {"k": 5, "richness": "showcase",   "image_mood": "beautiful interiors, city skylines, architectural exteriors, natural light — aspirational but real", "section_emphasis": "Hero (property photo), Angebote gallery, Kontakt"},
+    # ── Medical — clean clinical, calm visuals ────────────────────────────────
+    "Arzt":              {"k": 4, "richness": "balanced",   "image_mood": "calm clinic interiors, soft light, medical equipment close-ups — NO cheesy stock doctors", "section_emphasis": "Hero (calm, reassuring), Leistungen, Über uns (doctor portrait only if real photo available)"},
+    "Kinderarzt":        {"k": 4, "richness": "balanced",   "image_mood": "bright warm clinic, soft toys, natural light, friendly space — warm not clinical", "section_emphasis": "Hero (warm and welcoming), Leistungen"},
+    "Zahnarzt":          {"k": 4, "richness": "balanced",   "image_mood": "modern dental equipment close-ups, clean white surfaces, soft light — sleek not sterile", "section_emphasis": "Hero + Leistungen + Bewertungen (trust-building)"},
+    "Physiotherapeut":   {"k": 5, "richness": "balanced",   "image_mood": "treatment room, exercise equipment, natural light, movement — active and human", "section_emphasis": "Hero + Leistungen + Über uns"},
+    "Apotheke":          {"k": 4, "richness": "balanced",   "image_mood": "pharmacy shelves, pill close-ups, clean counters, friendly space", "section_emphasis": "Hero + Leistungen + Kontakt"},
+    "Hebamme":           {"k": 4, "richness": "balanced",   "image_mood": "warm soft tones, natural textiles, calm home setting — intimate and reassuring", "section_emphasis": "Hero (warm), Leistungen, Über uns"},
+    "Optiker":           {"k": 5, "richness": "showcase",   "image_mood": "eyewear product shots, optical precision details, brand lifestyle — boutique feel", "section_emphasis": "Hero (product), Sortiment gallery, Über uns"},
+    # ── Trades / Handwerk — process + results, before/after ──────────────────
+    "Handwerker":        {"k": 5, "richness": "showcase",   "image_mood": "close-up of hands at work, finished projects, raw materials, tools — authentic craft", "section_emphasis": "Hero (project photo), Leistungen, Projekte gallery (before/after if available)"},
+    "Maler":             {"k": 5, "richness": "showcase",   "image_mood": "freshly painted walls with dramatic light, paint textures, color swatches, finished rooms — vivid and clean", "section_emphasis": "Hero (color-rich project), Projekte gallery (dominant section), Leistungen"},
+    "Elektriker":        {"k": 4, "richness": "balanced",   "image_mood": "electrical panels, wiring close-ups, modern smart-home tech, precision tools — technical trustworthy", "section_emphasis": "Hero + Leistungen + Kontakt (emergency emphasis)"},
+    "Sanitär":           {"k": 4, "richness": "balanced",   "image_mood": "modern bathroom installations, copper pipes, premium fixtures — clean and precise", "section_emphasis": "Hero + Leistungen + Kontakt"},
+    "Schreiner":         {"k": 5, "richness": "showcase",   "image_mood": "wood grain close-ups, finished furniture, workshop tools, natural materials — warm craft quality", "section_emphasis": "Hero + Projekte gallery + Leistungen"},
+    "Klempner":          {"k": 4, "richness": "balanced",   "image_mood": "clean modern bathrooms, copper pipes, precision fittings — reliable and professional", "section_emphasis": "Hero + Leistungen + Kontakt (24h emergency)"},
+    # ── Beauty / wellness — lifestyle, product, atmosphere ───────────────────
+    "Kosmetik":          {"k": 5, "richness": "expressive", "image_mood": "skincare textures, clean product flatlays, glowing skin close-ups, warm studio light — aspirational", "section_emphasis": "Hero (atmosphere), Leistungen, Bewertungen, Kontakt"},
+    "Kosmetikstudio":    {"k": 5, "richness": "expressive", "image_mood": "studio interior, treatment products, serene lighting — premium spa feel", "section_emphasis": "Hero + Leistungen + Über uns"},
+    "Nagelstudio":       {"k": 5, "richness": "expressive", "image_mood": "nail art close-ups, product textures, pastel studio interior — detail-oriented and aesthetic", "section_emphasis": "Hero + Galerie (nail work) + Leistungen"},
+    "Friseur":           {"k": 5, "richness": "expressive", "image_mood": "salon interior, hair color transformations, product shots, styling — vibrant and creative", "section_emphasis": "Hero (dramatic styling shot) + Leistungen + Galerie"},
+    "Massage":           {"k": 4, "richness": "balanced",   "image_mood": "spa stones, warm candlelight, towels, zen interior — tranquil and sensory", "section_emphasis": "Hero (atmosphere) + Leistungen + Buchung CTA"},
+    # ── Playful / creative / nightlife ───────────────────────────────────────
+    "Bar":               {"k": 6, "richness": "expressive", "image_mood": "cocktail photography, moody bar lighting, spirit bottles, atmospheric crowd shots — cinematic dark", "section_emphasis": "Hero (full-bleed atmosphere) + Karte/Menu + Events"},
+    "Club":              {"k": 6, "richness": "expressive", "image_mood": "dark venue with dramatic lighting, DJ setup, crowd energy, laser lights — cinematic night", "section_emphasis": "Hero (full atmosphere) + Events + Location"},
+    "DJ":                {"k": 6, "richness": "expressive", "image_mood": "DJ equipment close-up, stage atmosphere, crowd energy, audio waveforms — high energy", "section_emphasis": "Hero + Mix/Work gallery + Buchung"},
+    "Tattoo":            {"k": 6, "richness": "expressive", "image_mood": "tattoo close-ups showing craft, studio interior, ink supplies, artist at work — dark and artistic", "section_emphasis": "Hero + Galerie (dominant — max portfolio shots) + Stile + Kontakt"},
+    "Fotograf":          {"k": 6, "richness": "expressive", "image_mood": "USE REAL scraped images as primary — show photography portfolio; Picsum only as fallback", "section_emphasis": "Hero (best portfolio shot) + Portfolio gallery (dominant) + Leistungen + Kontakt"},
+    "Barbier":           {"k": 5, "richness": "expressive", "image_mood": "razor and barber tools, masculine grooming products, barber shop interior — artisanal dark aesthetic", "section_emphasis": "Hero (dark atmospheric) + Leistungen + Team"},
+    "Florist":           {"k": 6, "richness": "expressive", "image_mood": "flower close-ups with shallow depth of field, arrangement process, studio with natural light — lush and colorful", "section_emphasis": "Hero (flowers full-bleed) + Galerie + Leistungen + Kontakt"},
+    "Eventplaner":       {"k": 6, "richness": "expressive", "image_mood": "beautifully decorated event venues, table settings, floral arrangements, ambient lighting — aspirational", "section_emphasis": "Hero + Referenzen gallery + Leistungen + Kontakt"},
+    "Partyservice":      {"k": 5, "richness": "expressive", "image_mood": "food spreads, event atmosphere, catering setup, happy crowds — festive energy", "section_emphasis": "Hero + Leistungen + Galerie + Kontakt"},
+    # ── Restaurants / food ───────────────────────────────────────────────────
+    "Restaurant":        {"k": 5, "richness": "expressive", "image_mood": "food photography (top-down dishes), restaurant interior, chef at work, plating details", "section_emphasis": "Hero (signature dish) + Karte highlights + Atmosphäre + Reservierung CTA"},
+    "Cafe":              {"k": 5, "richness": "expressive", "image_mood": "latte art, pastry close-ups, warm cafe interior, morning light — cozy and inviting", "section_emphasis": "Hero + Karte + Atmosphäre + Standort"},
+    "Bäckerei":          {"k": 5, "richness": "expressive", "image_mood": "bread close-ups, bakery process, flour dusted hands, oven light — authentic craft", "section_emphasis": "Hero + Sortiment + Über uns + Standort"},
+}
+
+_DEFAULT_STYLE_PROFILE = {"k": 5, "richness": "balanced", "image_mood": "authentic business photography — real materials, real spaces, no generic stock", "section_emphasis": "Hero + Leistungen + Kontakt"}
+
+
+def _get_style_profile(category: str) -> dict:
+    return _CATEGORY_STYLE_PROFILES.get(category, _DEFAULT_STYLE_PROFILE)
+
+
 def _get_suggested_palette(category: str, seed: str = "") -> dict | None:
     """Pick a palette deterministically from the category bucket.
 
@@ -535,7 +597,7 @@ MOOD ADJECTIVES:
 Output ONLY the requested brief fields. No preamble, no markdown headers, no explanation."""
 
 
-def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None, picked_animations: list | None = None, scraped_colors: list | None = None, suggested_palette: dict | None = None, ref_design_analyses: list | None = None) -> str:
+def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None, picked_animations: list | None = None, scraped_colors: list | None = None, suggested_palette: dict | None = None, ref_design_analyses: list | None = None, style_profile: dict | None = None) -> str:
     css_summary = ""
     if ref_css.get("computed"):
         parts = []
@@ -688,6 +750,23 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
     if category in _FORMAL_CATEGORIES:
         formal_block = _FORMAL_PREMIUM_RULES
 
+    # Style profile — visual richness and image direction per category
+    profile = style_profile or _DEFAULT_STYLE_PROFILE
+    richness_map = {
+        "editorial":   "Restrained and precise — every element earns its place. Max 4 animations. Long pauses between sections. Whitespace is the design.",
+        "balanced":    "Professional but engaging — quality animations, clear hierarchy. 4-5 sections animated. Not boring, not showy.",
+        "showcase":    "Portfolio-first — the work IS the hero. Large images dominate. Gallery section is the most important section. 5 animations minimum.",
+        "expressive":  "Full creative expression — atmospheric, immersive, rich. 6 animations. Bold imagery. Every section should feel alive.",
+    }
+    richness_note = richness_map.get(profile["richness"], richness_map["balanced"])
+    profile_block = (
+        f"\n## CATEGORY VISUAL PROFILE ({category})\n"
+        f"- Visual richness: {profile['richness'].upper()} — {richness_note}\n"
+        f"- Image direction: {profile['image_mood']}\n"
+        f"- Section emphasis: {profile['section_emphasis']}\n"
+        f"- Animation count assigned: {profile['k']} techniques (see ANIMATION ASSIGNMENTS below)\n"
+    )
+
     # Use pre-selected animation assignments (generated once in generate_demo for reuse in codegen)
     section_labels = [
         "Hero section",
@@ -718,6 +797,7 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"{mode_hint}\n"
         f"{serif_hint}\n"
         f"{formal_block}"
+        f"{profile_block}"
         f"{palette_block}"
         f"{brand_colors_block}"
         f"{analysis_block}\n"
@@ -1717,7 +1797,8 @@ def generate_demo(lead: dict, conn) -> str | None:
     _set_sub_stage(conn, lead_id, "design_brief")
     print(f"[demo] Generating design brief for lead {lead_id}...")
     # Pick animation assignments + palette once — shared between brief (Sonnet) and codegen (Fable)
-    picked_animations = _pick_animations(category, k=6)
+    style_profile = _get_style_profile(category)
+    picked_animations = _pick_animations(category, k=style_profile["k"])
     suggested_palette = _get_suggested_palette(category, seed=lead.get("name", "") + lead.get("website", ""))
     scraped_colors = content.get("colors") or []
 
@@ -1730,6 +1811,7 @@ def generate_demo(lead: dict, conn) -> str | None:
             scraped_colors=scraped_colors,
             suggested_palette=suggested_palette,
             ref_design_analyses=ref_design_analyses or None,
+            style_profile=style_profile,
         ),
         system=_BRIEF_SYSTEM_PROMPT,
         model="claude-sonnet-4-6",
