@@ -110,10 +110,12 @@ _HERO_PARADIGMS = [
 ]
 _MOTION_LEVELS = [6, 7, 7, 8]  # weighted toward higher motion
 
-# Animation technique pool — one per section, randomly sampled each generation
+# Animation technique pool — one per section, sampled per generation.
+# tone: "formal" = Anwalt/Arzt/Notar, "neutral" = most categories, "playful" = Bar/Club/Tattoo
 _ANIMATION_TECHNIQUES = [
     {
         "name": "curtain-cascade",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Hero headline words stagger in from y:80 opacity:0, 120ms apart, spring ease.",
         "snippet": """\
 const words = headline.split(' ');
@@ -130,6 +132,7 @@ const words = headline.split(' ');
     },
     {
         "name": "slide-from-left",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Element slides in from x:-80 opacity:0 on scroll entry. For images or left-side content.",
         "snippet": """\
 <motion.div
@@ -142,6 +145,7 @@ const words = headline.split(' ');
     },
     {
         "name": "slide-from-right",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Element slides in from x:80 opacity:0 on scroll entry. For images or right-side content.",
         "snippet": """\
 <motion.div
@@ -154,6 +158,7 @@ const words = headline.split(' ');
     },
     {
         "name": "text-scrub-reveal",
+        "tone": ["formal", "neutral"],
         "desc": "GSAP ScrollTrigger: paragraph writes itself word-by-word as user scrolls through the section.",
         "snippet": """\
 // Wrap each word in a span with className="scrub-word"
@@ -170,6 +175,7 @@ useEffect(() => {
     },
     {
         "name": "typewriter",
+        "tone": ["neutral", "playful"],
         "desc": "Characters appear one-by-one as if typed live, with a blinking cursor.",
         "snippet": """\
 const [displayed, setDisplayed] = useState('');
@@ -187,6 +193,7 @@ useEffect(() => {
     },
     {
         "name": "clip-path-wipe",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Horizontal wipe: clip-path inset(0 100% 0 0) → inset(0 0 0 0) reveals image or block.",
         "snippet": """\
 <motion.div
@@ -199,6 +206,7 @@ useEffect(() => {
     },
     {
         "name": "spring-pop",
+        "tone": ["neutral", "playful"],
         "desc": "Cards scale from 0.85+opacity:0 with spring physics, staggered 80ms.",
         "snippet": """\
 const container = {hidden:{}, show:{transition:{staggerChildren:0.08}}};
@@ -212,6 +220,7 @@ const item = {
     },
     {
         "name": "gsap-pin-text",
+        "tone": ["formal", "neutral"],
         "desc": "Section heading pins on one side (GSAP pin:true) while cards/text scroll past on the other.",
         "snippet": """\
 useEffect(() => {
@@ -230,6 +239,7 @@ useEffect(() => {
     },
     {
         "name": "parallax-layers",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Background moves at 0.3x scroll speed, foreground text at 0.7x — depth parallax.",
         "snippet": """\
 const ref = useRef(null);
@@ -248,6 +258,7 @@ const fgY = useTransform(scrollYProgress, [0,1], ['0%','-15%']);
     },
     {
         "name": "blur-emerge",
+        "tone": ["formal", "neutral"],
         "desc": "Elements enter from blur(12px)+y:40+opacity:0 → sharp — focus-pull effect.",
         "snippet": """\
 <motion.div
@@ -260,6 +271,7 @@ const fgY = useTransform(scrollYProgress, [0,1], ['0%','-15%']);
     },
     {
         "name": "count-up",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Numbers animate from 0 to final value over 1200ms via IntersectionObserver.",
         "snippet": """\
 function CountUp({end, suffix=''}) {
@@ -285,6 +297,7 @@ function CountUp({end, suffix=''}) {
     },
     {
         "name": "horizontal-marquee",
+        "tone": ["neutral", "playful"],
         "desc": "Infinite CSS loop: items scroll horizontally. For reviews, logos, or service tags.",
         "snippet": """\
 // Add to <style> tag: @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -299,6 +312,7 @@ function CountUp({end, suffix=''}) {
     },
     {
         "name": "alternating-slide",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Odd rows from x:-80, even from x:80 — zigzag entry rhythm across the section.",
         "snippet": """\
 {items.map((item, i) => (
@@ -313,6 +327,7 @@ function CountUp({end, suffix=''}) {
     },
     {
         "name": "gsap-card-stack",
+        "tone": ["formal", "neutral"],
         "desc": "GSAP: cards pin and layer on top of each other as user scrolls down.",
         "snippet": """\
 useEffect(() => {
@@ -333,6 +348,7 @@ useEffect(() => {
     },
     {
         "name": "scale-reveal",
+        "tone": ["formal", "neutral", "playful"],
         "desc": "Image scale:1.15→1.0 inside overflow-hidden — zoom-into-frame on scroll entry.",
         "snippet": """\
 <div style={{overflow:'hidden', borderRadius:'1rem'}}>
@@ -352,6 +368,30 @@ _SERIF_CATEGORIES = {"Anwalt", "Rechtsanwalt", "Notar", "Arzt", "Zahnarzt", "Ste
 _LIGHT_MODE_CATEGORIES = {"Zahnarzt", "Physiotherapeut", "Kosmetik", "Optiker", "Apotheke", "Kinderarzt", "Hebamme"}
 # Professions that suit a dark/moody background
 _DARK_MODE_CATEGORIES = {"Bar", "Restaurant", "Club", "DJ", "Fotograf", "Tattoo", "Barbier"}
+
+# Category → animation tone mapping
+# formal: restrained, no gimmicks (Anwalt, Arzt, Notar, Steuerberater, Architekt, Immobilien)
+# playful: energy, bounce OK (Bar, Club, Tattoo, DJ, Fotograf, Barbier, Florist)
+# neutral: anything else — full pool
+_FORMAL_CATEGORIES = {"Anwalt", "Rechtsanwalt", "Notar", "Arzt", "Steuerberater", "Architekt",
+                      "Immobilienmakler", "Unternehmensberater", "Wirtschaftsprüfer", "Notariat"}
+_PLAYFUL_CATEGORIES = {"Bar", "Club", "DJ", "Tattoo", "Fotograf", "Barbier",
+                       "Florist", "Eventplaner", "Partyservice"}
+
+
+def _pick_animations(category: str, k: int = 6) -> list:
+    """Sample k animation techniques appropriate for the business category."""
+    if category in _FORMAL_CATEGORIES:
+        tone = "formal"
+    elif category in _PLAYFUL_CATEGORIES:
+        tone = "playful"
+    else:
+        tone = "neutral"
+    pool = [t for t in _ANIMATION_TECHNIQUES if tone in t["tone"]]
+    # Fallback: if pool too small, open up to neutral
+    if len(pool) < k:
+        pool = [t for t in _ANIMATION_TECHNIQUES if "neutral" in t["tone"]]
+    return random.sample(pool, k=min(k, len(pool)))
 
 _BRIEF_SYSTEM_PROMPT = """You are a senior UI/UX designer writing design briefs for premium React websites.
 
@@ -473,7 +513,7 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         "FAQ or secondary content section",
         "Kontakt / CTA section",
     ]
-    picked_techniques = picked_animations or random.sample(_ANIMATION_TECHNIQUES, k=min(6, len(_ANIMATION_TECHNIQUES)))
+    picked_techniques = picked_animations or _pick_animations(lead.get("category", ""), k=6)
     animation_assignments = "\n".join(
         f"  - {label}: [{t['name']}] {t['desc']}"
         for label, t in zip(section_labels, picked_techniques)
@@ -1334,7 +1374,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     _set_sub_stage(conn, lead_id, "design_brief")
     print(f"[demo] Generating design brief for lead {lead_id}...")
     # Pick animation assignments once — shared between brief (Sonnet) and codegen (Fable)
-    picked_animations = random.sample(_ANIMATION_TECHNIQUES, k=min(6, len(_ANIMATION_TECHNIQUES)))
+    picked_animations = _pick_animations(category, k=6)
 
     design_brief = claude_p(
         prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured, content.get("design_analysis"), picked_animations),
