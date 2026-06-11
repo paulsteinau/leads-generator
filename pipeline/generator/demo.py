@@ -1457,13 +1457,65 @@ def _deploy_via_vercel_api(demo_dir: Path, slug: str, conn, lead_id: int) -> str
             timeout=180,
         )
         data = resp.json()
-        if resp.status_code in (200, 201):
-            url = data.get("url") or ""
-            if url and not url.startswith("https://"):
-                url = f"https://{url}"
-            print(f"[demo] vercel deploy ok: {url}")
-            return url or None
-        print(f"[demo] vercel API error {resp.status_code}: {json.dumps(data)[:500]}")
+        if resp.status_code not in (200, 201):
+            print(f"[demo] vercel API error {resp.status_code}: {json.dumps(data)[:500]}")
+            return None
+
+        deploy_id = data.get("id") or ""
+        url = data.get("url") or ""
+        if url and not url.startswith("https://"):
+            url = f"https://{url}"
+        print(f"[demo] vercel deployment created: {url} (id={deploy_id}) — waiting for build...")
+
+        # Poll build status — Vercel builds asynchronously after returning 200
+        headers = {"Authorization": f"Bearer {token}"}
+        for attempt in range(24):  # max ~4 min (24 × 10s)
+            import time
+            time.sleep(10)
+            try:
+                status_resp = httpx.get(
+                    f"https://api.vercel.com/v13/deployments/{deploy_id}",
+                    headers=headers,
+                    timeout=30,
+                )
+                status_data = status_resp.json()
+                state = status_data.get("readyState") or status_data.get("state") or "UNKNOWN"
+                print(f"[demo] vercel build status [{attempt+1}/24]: {state}")
+
+                if state in ("READY", "ready"):
+                    print(f"[demo] vercel deploy ok: {url}")
+                    return url or None
+
+                if state in ("ERROR", "CANCELED", "error", "canceled"):
+                    # Fetch build error details
+                    try:
+                        err_resp = httpx.get(
+                            f"https://api.vercel.com/v3/deployments/{deploy_id}/events",
+                            headers=headers,
+                            params={"types": "error,stderr", "limit": "20"},
+                            timeout=30,
+                        )
+                        events = err_resp.json()
+                        if isinstance(events, list):
+                            error_lines = [
+                                e.get("payload", {}).get("text", "") or e.get("text", "")
+                                for e in events if isinstance(e, dict)
+                            ]
+                            error_text = "\n".join(l for l in error_lines if l)[:2000]
+                            print(f"[demo] vercel BUILD FAILED — error log:\n{error_text}")
+                        else:
+                            print(f"[demo] vercel BUILD FAILED: {json.dumps(status_data.get('error', {}))[:500]}")
+                    except Exception as log_err:
+                        print(f"[demo] vercel BUILD FAILED (could not fetch logs: {log_err})")
+                    return None
+
+            except Exception as poll_err:
+                print(f"[demo] vercel status poll error: {poll_err}")
+                continue
+
+        print(f"[demo] vercel build timeout after 4 min — url may still become ready: {url}")
+        return url or None
+
     except Exception as e:
         print(f"[demo] vercel API exception: {e}")
     return None
