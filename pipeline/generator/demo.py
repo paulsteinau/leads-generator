@@ -817,6 +817,53 @@ def _build_animation_checklist(picked_animations: list) -> str:
     return "\n".join(lines)
 
 
+def _extract_brief_mandatory(brief: str) -> str:
+    """Extract critical values from design brief and inject as non-negotiable block at top of codegen prompt."""
+    lines = [
+        "## MANDATORY IMPLEMENTATION VALUES — DO NOT SUBSTITUTE",
+        "These values were selected by the design brief. Use them exactly — no alternatives.\n",
+    ]
+
+    # Extract hex colors
+    hexes = re.findall(r'#([0-9a-fA-F]{6})\b', brief)
+    if hexes:
+        unique = list(dict.fromkeys(h.upper() for h in hexes))[:6]
+        color_list = ", ".join(f"#{h}" for h in unique)
+        lines.append(f"- COLOR PALETTE (exact hex values only): {color_list}")
+        lines.append(f"  → Use #{unique[0]} as background, #{unique[-1]} as accent on ALL CTAs and highlights.")
+        lines.append("  → Do NOT invent new colors. Do NOT use generic blue/purple gradients.\n")
+
+    # Extract font pairing — look for explicit font name mentions
+    heading_m = re.search(
+        r'(?:heading font|display font|headline font)[:\s]+([A-Z][A-Za-z\s]+?)(?:\s*[,\n(+]|$)',
+        brief, re.IGNORECASE
+    )
+    body_m = re.search(
+        r'(?:body font|body:[^,\n]*?|sans body)[:\s]+([A-Z][A-Za-z\s]+?)(?:\s*[,\n(]|$)',
+        brief, re.IGNORECASE
+    )
+    # Fallback: look for "Font Pairing: X + Y"
+    pairing_m = re.search(r'font pairing[:\s]+([A-Z][A-Za-z\s]+?)\s*\+\s*([A-Z][A-Za-z\s]+?)(?:\s*[,\n]|$)', brief, re.IGNORECASE)
+
+    if pairing_m:
+        hf = pairing_m.group(1).strip()
+        bf = pairing_m.group(2).strip()
+        lines.append(f"- FONTS: Heading = \"{hf}\" | Body = \"{bf}\"")
+        lines.append(f"  → Import BOTH via @import in a <style> tag at top of the component. No Inter, no Roboto.\n")
+    elif heading_m or body_m:
+        if heading_m:
+            lines.append(f"- HEADING FONT: \"{heading_m.group(1).strip()}\" — import via @import in <style> tag.")
+        if body_m:
+            lines.append(f"- BODY FONT: \"{body_m.group(1).strip()}\" — import via @import in <style> tag.")
+        lines.append("")
+
+    if len(lines) <= 2:
+        return ""  # Nothing extracted, skip block
+
+    lines.append("Violating any of the above = broken output.\n")
+    return "\n".join(lines) + "\n"
+
+
 def _build_codegen_prompt(
     lead: dict,
     content: dict,
@@ -1026,8 +1073,12 @@ Content for generated pages: derive from business name, category, and all scrape
 
     animation_checklist = _build_animation_checklist(picked_animations) if picked_animations else ""
 
+    # Extract mandatory values from brief so they appear at top of prompt
+    brief_mandatory = _extract_brief_mandatory(design_brief)
+
     return f"""
 {animation_checklist}
+{brief_mandatory}
 {screenshot_context}Generate a complete single-file React App.jsx for this German business demo website.
 {routes_section}
 
@@ -1649,6 +1700,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         stage="design_brief",
         generation_num=generation_num,
     )
+    print(f"[demo] design_brief:\n{design_brief}")
 
     # Stage 6: Design system prompt (skills)
     design_system = build_design_system_prompt()
