@@ -97,15 +97,15 @@ def generate_emails(lead: dict, conn, dry_run: bool = False) -> dict | None:
         total_out += resp.usage.output_tokens
         return resp.content[0].text
 
-    subj, body_a = _parse(call(
+    subj_a, body_a = _parse(call(
         "Erwaehne konkret was technisch nicht optimal laeuft (z.B. PageSpeed, kein CTA) "
         "und erklaere kurz wie das potenzielle Kunden kostet. Warm und sachlich, kein Vorwurf."
     ))
-    _, body_b = _parse(call(
+    subj_b, body_b = _parse(call(
         "Betone was das Unternehmen bereits gut macht und wo noch Kunden auf dem Tisch liegen "
         "die man mit besserer Sichtbarkeit erreichen und halten koennte. Neugierig und positiv."
     ))
 
     _log_cost(conn, lead_id, total_in, total_out)
 
-    return {"subject": subj, "body_a": body_a, "body_b": body_b}
+    return {"subject": subj_a, "subject_b": subj_b, "body_a": body_a, "body_b": body_b}

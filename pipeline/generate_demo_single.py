@@ -3,6 +3,7 @@
 Entry script: run the full demo generation pipeline for a single lead.
 Usage: python pipeline/generate_demo_single.py <lead_id>
 """
+import json
 import re
 import sys
 import logging
@@ -53,10 +54,14 @@ def run(lead_id: int):
             log.info("Generating email copy...")
             emails = generate_emails(lead, conn)
             if emails:
+                subjects = [emails["subject"]]
+                if emails.get("subject_b"):
+                    subjects.append(emails["subject_b"])
                 conn.execute(
-                    "UPDATE leads SET email_subject=?,email_body_a=?,email_body_b=?,"
+                    "UPDATE leads SET email_subject=?,email_body_a=?,email_body_b=?,email_subjects=?,"
                     "stage='ready_for_review',updated_at=datetime('now') WHERE id=?",
-                    (emails["subject"], emails["body_a"], emails["body_b"], lead_id),
+                    (emails["subject"], emails["body_a"], emails["body_b"],
+                     json.dumps(subjects), lead_id),
                 )
             else:
                 conn.execute(
