@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { LeadDetail, approveLead, rejectLead, editDemo } from "@/lib/api";
+import { LeadDetail, approveLead, rejectLead, editDemo, saveReview } from "@/lib/api";
 
 export default function ReviewPanel({ lead }: { lead: LeadDetail }) {
   const subjects: string[] = (() => {
@@ -22,6 +22,7 @@ export default function ReviewPanel({ lead }: { lead: LeadDetail }) {
   const handleApprove = async () => {
     setApproveState("loading");
     try {
+      await saveReview(lead.id, { body });
       const result = await approveLead(lead.id);
       setApproveState(result.ok ? "sent" : "error");
     } catch {

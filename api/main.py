@@ -16,6 +16,7 @@ from api.models import (
     ApproveEmailRequest, UpdateStatusRequest, UpdateEmailRequest,
     PendingReviewLead, RegenerateRequest, EditDemoRequest,
     ResendWebhookPayload, UnsubscribeRequest, ManualLeadRequest,
+    SaveReviewRequest,
 )
 
 app = FastAPI(title="Berlin Lead-Gen API")
@@ -347,6 +348,26 @@ def get_lead(lead_id: int):
         d[k] = bool(d[k]) if d.get(k) is not None else None
     d["updated_at"] = d.get("updated_at") or ""
     return LeadDetail(**d)
+
+
+@app.post("/leads/{lead_id}/save-review")
+def save_review(lead_id: int, body: SaveReviewRequest):
+    conn = get_conn()
+    row = conn.execute("SELECT id FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    if body.body is not None:
+        conn.execute(
+            "UPDATE leads SET email_body_a=?, updated_at=datetime('now') WHERE id=?",
+            (body.body, lead_id),
+        )
+    if body.subject is not None:
+        conn.execute(
+            "UPDATE leads SET email_subject=?, updated_at=datetime('now') WHERE id=?",
+            (body.subject, lead_id),
+        )
+    conn.commit()
+    return {"ok": True}
 
 
 @app.post("/leads/{lead_id}/approve-email")

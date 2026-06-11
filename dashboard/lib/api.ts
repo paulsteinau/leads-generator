@@ -178,6 +178,18 @@ export async function createManualLead(data: {
   return res.json();
 }
 
+export async function saveReview(
+  leadId: number,
+  data: { body?: string; subject?: string }
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/leads/${leadId}/save-review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
 export async function editDemo(leadId: number, description: string): Promise<{ ok: boolean }> {
   const res = await fetch(`${API}/leads/${leadId}/edit-demo`, {
     method: "POST",

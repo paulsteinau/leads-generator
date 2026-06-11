@@ -116,3 +116,8 @@ class ResendWebhookPayload(BaseModel):
 class UnsubscribeRequest(BaseModel):
     email: str
     domain: Optional[str] = None
+
+
+class SaveReviewRequest(BaseModel):
+    body: Optional[str] = None
+    subject: Optional[str] = None
