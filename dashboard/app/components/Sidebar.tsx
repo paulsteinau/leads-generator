@@ -19,7 +19,7 @@ interface CostStats {
   cost_per_demo_avg: number;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const _secret = process.env.NEXT_PUBLIC_API_SECRET ?? "";
 const authHeaders = () => ({ Authorization: `Bearer ${_secret}` });
 
