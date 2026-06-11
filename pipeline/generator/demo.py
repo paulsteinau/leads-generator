@@ -496,7 +496,7 @@ MOOD ADJECTIVES:
 Output ONLY the requested brief fields. No preamble, no markdown headers, no explanation."""
 
 
-def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None, picked_animations: list | None = None, scraped_colors: list | None = None, suggested_palette: dict | None = None) -> str:
+def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None, picked_animations: list | None = None, scraped_colors: list | None = None, suggested_palette: dict | None = None, ref_design_analyses: list | None = None) -> str:
     css_summary = ""
     if ref_css.get("computed"):
         parts = []
@@ -574,6 +574,46 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
             f"- Layout: {layout_note}\n"
         )
 
+    # Reference site design pattern analysis block
+    ref_analysis_block = ""
+    if ref_design_analyses:
+        ref_lines = []
+        all_fonts = []
+        all_libs = []
+        layout_counts = {"grid-dominant": 0, "flex-dominant": 0}
+        anim_sites = 0
+        for da in ref_design_analyses:
+            if not da:
+                continue
+            fonts = [f for f in (da.get("fonts") or []) if f not in ("", "inherit")]
+            all_fonts.extend(fonts)
+            all_libs.extend(da.get("animLibs") or [])
+            lt = da.get("layoutType", "")
+            if lt in layout_counts:
+                layout_counts[lt] += 1
+            if da.get("hasScrollAnimations"):
+                anim_sites += 1
+
+        unique_fonts = list(dict.fromkeys(all_fonts))[:5]
+        unique_libs = list(dict.fromkeys(all_libs))
+        dominant_layout = max(layout_counts, key=layout_counts.get) if any(layout_counts.values()) else "unknown"
+
+        if unique_fonts:
+            ref_lines.append(f"- Fonts in use: {', '.join(unique_fonts)} — consider these as the category standard, then differentiate")
+        if unique_libs:
+            ref_lines.append(f"- Animation libraries: {', '.join(unique_libs)} — category already expects motion")
+        elif anim_sites == 0:
+            ref_lines.append("- Animation: none detected — our demo will be dramatically more dynamic by comparison")
+        else:
+            ref_lines.append(f"- Scroll animations: {anim_sites}/{len(ref_design_analyses)} reference sites have them")
+        ref_lines.append(f"- Layout pattern: {dominant_layout} — match or surpass this structural approach")
+
+        if ref_lines:
+            ref_analysis_block = (
+                f"\n## CATEGORY BENCHMARK (real premium {category} sites — meet or exceed this bar)\n"
+                + "\n".join(ref_lines) + "\n"
+            )
+
     # Randomly select archetypes to force visual variance between generations
     vibe = random.choice(_VIBE_ARCHETYPES)
     layout = random.choice(_LAYOUT_ARCHETYPES)
@@ -642,6 +682,7 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"{palette_block}"
         f"{brand_colors_block}"
         f"{analysis_block}\n"
+        f"{ref_analysis_block}"
         f"Category inspiration (do NOT copy directly — use as mood reference only):\n{inspiration}\n\n"
         f"{css_summary}\n\n"
         f"FORCED DESIGN DIRECTION for this generation (implement ALL of these exactly):\n"
@@ -1493,12 +1534,15 @@ def generate_demo(lead: dict, conn) -> str | None:
     suggested_palette = _get_suggested_palette(category)
     scraped_colors = content.get("colors") or []
 
+    ref_design_analyses = [s.get("design_analysis") for s in selected_sites if s.get("design_analysis")]
+
     design_brief = claude_p(
         prompt=_build_design_brief_prompt(
             lead, inspiration, ref_css, structured,
             content.get("design_analysis"), picked_animations,
             scraped_colors=scraped_colors,
             suggested_palette=suggested_palette,
+            ref_design_analyses=ref_design_analyses or None,
         ),
         system=_BRIEF_SYSTEM_PROMPT,
         model="claude-sonnet-4-6",

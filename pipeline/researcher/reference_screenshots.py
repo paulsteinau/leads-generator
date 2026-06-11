@@ -2,7 +2,8 @@
 """
 Screenshots reference sites once per category and caches screenshot + CSS palette to disk.
 Cache lives at DATA_DIR/ref_screenshots/<category>.json — never expires automatically.
-Delete the file to force a refresh.
+Delete the file to force a refresh. Re-fetch also adds design_analysis (fonts, anim libs,
+layout type) — delete cache files to pick this up for existing categories.
 """
 import asyncio
 import base64
@@ -13,6 +14,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 
 from pipeline.researcher.inspiration import CATEGORY_REFERENCES
+from pipeline.scraper.website_content import _analyze_design_patterns
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent / "data"))
 REF_CACHE_DIR = DATA_DIR / "ref_screenshots"
@@ -73,6 +75,10 @@ async def _fetch_reference(url: str) -> dict:
                 }
             """)
             result["css"] = css_data or {}
+
+            # Design pattern analysis — same function used for lead's current site
+            result["design_analysis"] = await _analyze_design_patterns(page)
+
             await browser.close()
     except Exception as e:
         result["error"] = str(e)
