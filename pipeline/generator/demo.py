@@ -393,6 +393,82 @@ def _pick_animations(category: str, k: int = 6) -> list:
         pool = [t for t in _ANIMATION_TECHNIQUES if "neutral" in t["tone"]]
     return random.sample(pool, k=min(k, len(pool)))
 
+
+# ── Curated premium palettes ──────────────────────────────────────────────────
+# Each entry: bg, surface, text, accent, shadow — all hex, all calibrated.
+# Formal = Anwalt/Notar/Steuerberater/Architekt. Medical = Arzt/Zahnarzt/etc.
+# Light-trade = Kosmetik/Optiker/Hebamme. Playful = Bar/Club/Tattoo.
+# "neutral" categories get no forced palette — brief decides freely.
+
+_PALETTES_FORMAL = [
+    {"name": "Legal Navy",      "bg": "#080f1a", "surface": "#0d1a2e", "text": "#f0ebe0", "accent": "#c4a35a", "shadow": "#030810"},
+    {"name": "Forest Authority","bg": "#0c1a12", "surface": "#132318", "text": "#edf0e8", "accent": "#8aab7a", "shadow": "#060d08"},
+    {"name": "Barrister Ivory", "bg": "#f6f2eb", "surface": "#ffffff", "text": "#161410", "accent": "#7a5c2e", "shadow": "#ddd8cc"},
+    {"name": "Charcoal Edit",   "bg": "#111111", "surface": "#1c1c1c", "text": "#e8e4db", "accent": "#a08060", "shadow": "#080808"},
+]
+
+_PALETTES_MEDICAL = [
+    {"name": "Clinical Light",  "bg": "#f8fafc", "surface": "#ffffff", "text": "#0f1e30", "accent": "#2c6e8a", "shadow": "#d4e0ea"},
+    {"name": "Warm Care",       "bg": "#fdfaf5", "surface": "#ffffff", "text": "#1c1812", "accent": "#4e7a6a", "shadow": "#e4ddd0"},
+    {"name": "Deep Medical",    "bg": "#0a1520", "surface": "#0f2030", "text": "#e8f0f8", "accent": "#4ab8c8", "shadow": "#050c14"},
+    {"name": "Sage Practice",   "bg": "#f4f7f4", "surface": "#ffffff", "text": "#141e18", "accent": "#3d7060", "shadow": "#d8e4dc"},
+]
+
+_PALETTES_LIGHT_TRADE = [
+    {"name": "Soft Studio",     "bg": "#faf8f5", "surface": "#ffffff", "text": "#1c1814", "accent": "#9b6e5c", "shadow": "#e4ddd6"},
+    {"name": "Clean Nordic",    "bg": "#f5f7f8", "surface": "#ffffff", "text": "#141c24", "accent": "#5c7a8a", "shadow": "#d8e0e8"},
+    {"name": "Warm Craft",      "bg": "#fdf8f2", "surface": "#ffffff", "text": "#1e1810", "accent": "#8c6840", "shadow": "#e8e0d4"},
+]
+
+_PALETTES_PLAYFUL = [
+    {"name": "Ink Dark",        "bg": "#0a0a0c", "surface": "#131318", "text": "#f0eeea", "accent": "#e85c3a", "shadow": "#050508"},
+    {"name": "Studio Night",    "bg": "#0f0e14", "surface": "#1a1824", "text": "#eceaf8", "accent": "#9b70e0", "shadow": "#08070e"},
+    {"name": "Raw Industrial",  "bg": "#111110", "surface": "#1c1c1a", "text": "#f0ede6", "accent": "#d4a030", "shadow": "#080806"},
+    {"name": "Deep Crimson",    "bg": "#0e0a0a", "surface": "#1c1212", "text": "#f4ede8", "accent": "#c43030", "shadow": "#080404"},
+]
+
+_CATEGORY_TO_PALETTE_BUCKET = {
+    # formal
+    "Anwalt": _PALETTES_FORMAL, "Rechtsanwalt": _PALETTES_FORMAL,
+    "Notar": _PALETTES_FORMAL, "Notariat": _PALETTES_FORMAL,
+    "Steuerberater": _PALETTES_FORMAL, "Wirtschaftsprüfer": _PALETTES_FORMAL,
+    "Unternehmensberater": _PALETTES_FORMAL, "Immobilienmakler": _PALETTES_FORMAL,
+    "Architekt": _PALETTES_FORMAL,
+    # medical
+    "Arzt": _PALETTES_MEDICAL, "Kinderarzt": _PALETTES_MEDICAL,
+    "Zahnarzt": _PALETTES_MEDICAL, "Physiotherapeut": _PALETTES_MEDICAL,
+    "Apotheke": _PALETTES_MEDICAL, "Hebamme": _PALETTES_MEDICAL,
+    "Optiker": _PALETTES_MEDICAL,
+    # light trade
+    "Kosmetik": _PALETTES_LIGHT_TRADE, "Kosmetikstudio": _PALETTES_LIGHT_TRADE,
+    "Nagelstudio": _PALETTES_LIGHT_TRADE, "Friseur": _PALETTES_LIGHT_TRADE,
+    "Massage": _PALETTES_LIGHT_TRADE,
+    # playful
+    "Bar": _PALETTES_PLAYFUL, "Club": _PALETTES_PLAYFUL, "DJ": _PALETTES_PLAYFUL,
+    "Tattoo": _PALETTES_PLAYFUL, "Fotograf": _PALETTES_PLAYFUL,
+    "Barbier": _PALETTES_PLAYFUL, "Florist": _PALETTES_PLAYFUL,
+    "Eventplaner": _PALETTES_PLAYFUL, "Partyservice": _PALETTES_PLAYFUL,
+}
+
+
+def _get_suggested_palette(category: str) -> dict | None:
+    bucket = _CATEGORY_TO_PALETTE_BUCKET.get(category)
+    return random.choice(bucket) if bucket else None
+
+
+# Formal-category premium design rules injected into the brief prompt
+_FORMAL_PREMIUM_RULES = """
+FORMAL PROFESSION — PREMIUM DESIGN RULES (non-negotiable):
+- Typography: serif heading (Fraunces, Playfair Display, or Cormorant Garamond) + clean sans body. No sans-only pairing.
+- Color: stay within the suggested palette. Accent must be muted metallic (gold, brass, sage, bronze) — never neon, blue, or purple.
+- Imagery: architectural detail shots, texture close-ups, office/material photography. NO smiling stock people.
+- Layout: editorial and structured. No bento grids, no card-stack chaos. Clean hierarchy only.
+- Motion: restrained — blur-emerge, text-scrub, gsap-pin-text, scale-reveal preferred. No spring-pop, no typewriter.
+- Copy tone: authoritative, specific, understated. "Seit 1998 vertreten wir Mandanten" not "Wir sind Ihr Partner."
+- Spacing: very generous. py-32 md:py-40 minimum on hero. Whitespace communicates premium.
+"""
+
+
 _BRIEF_SYSTEM_PROMPT = """You are a senior UI/UX designer writing design briefs for premium React websites.
 
 HARD RULES — the brief must respect all of these:
@@ -420,7 +496,7 @@ MOOD ADJECTIVES:
 Output ONLY the requested brief fields. No preamble, no markdown headers, no explanation."""
 
 
-def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None, picked_animations: list | None = None) -> str:
+def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None, picked_animations: list | None = None, scraped_colors: list | None = None, suggested_palette: dict | None = None) -> str:
     css_summary = ""
     if ref_css.get("computed"):
         parts = []
@@ -504,6 +580,35 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
     hero = random.choice(_HERO_PARADIGMS)
     motion = random.choice(_MOTION_LEVELS)
 
+    # Color context blocks
+    palette_block = ""
+    if suggested_palette:
+        p = suggested_palette
+        palette_block = (
+            f"\n## STARTING PALETTE — use these exact values as your base\n"
+            f"bg: {p['bg']} | surface: {p['surface']} | text: {p['text']} | accent: {p['accent']} | shadow: {p['shadow']}\n"
+            f"You MAY shift the accent ±10% in saturation/lightness if the business brand strongly justifies it. "
+            f"Do NOT replace the background family (stay dark-on-dark or light-on-light). "
+            f"Do NOT invent a purple, blue, or pink accent for this category.\n"
+        )
+
+    brand_colors_block = ""
+    if scraped_colors:
+        # Filter out transparent / very common values
+        filtered = [c for c in scraped_colors if c not in ("rgba(0, 0, 0, 0)", "transparent", "rgb(0, 0, 0)", "rgb(255, 255, 255)")][:6]
+        if filtered:
+            brand_colors_block = (
+                f"\n## EXISTING BRAND COLORS (scraped from current website)\n"
+                f"{', '.join(filtered)}\n"
+                f"If any of these are distinctive (non-generic), carry them into the redesign for brand continuity. "
+                f"Generic system colors (white, black) can be ignored.\n"
+            )
+
+    # Formal-category premium rules
+    formal_block = ""
+    if category in _FORMAL_CATEGORIES:
+        formal_block = _FORMAL_PREMIUM_RULES
+
     # Use pre-selected animation assignments (generated once in generate_demo for reuse in codegen)
     section_labels = [
         "Hero section",
@@ -519,12 +624,23 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         for label, t in zip(section_labels, picked_techniques)
     )
 
+    color_field = (
+        "- Color palette: background hex, text hex, accent hex (1 only), surface hex, shadow tint hex\n"
+        "  Use the STARTING PALETTE above as base. Justify any accent deviation in 5 words.\n"
+        if suggested_palette else
+        "- Color palette: background hex, text hex, accent hex (1 only), surface hex, shadow tint hex\n"
+        "  Justify accent in 5 words — why this color for THIS specific business\n"
+    )
+
     return (
         f"Create a concise, BUSINESS-SPECIFIC design brief for:\n\n"
         f"Business: {lead.get('name', '')} ({category}) in {lead.get('district', 'Berlin')}\n"
         f"{services_preview}\n{about_preview}\n{rating_info}\n\n"
         f"{mode_hint}\n"
         f"{serif_hint}\n"
+        f"{formal_block}"
+        f"{palette_block}"
+        f"{brand_colors_block}"
         f"{analysis_block}\n"
         f"Category inspiration (do NOT copy directly — use as mood reference only):\n{inspiration}\n\n"
         f"{css_summary}\n\n"
@@ -537,15 +653,14 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"These are unique to this generation and must not be swapped:\n"
         f"{animation_assignments}\n\n"
         f"Write a brief with EXACTLY these fields (concrete values only, no vague words):\n"
-        f"- Color palette: background hex, text hex, accent hex (1 only), surface hex, shadow tint hex\n"
-        f"  Justify accent in 5 words — why this color for THIS specific business\n"
+        f"{color_field}"
         f"- Background texture: radial-gradient / noise-overlay / mesh-gradient / clean-flat + one sentence why\n"
         f"- Gray family: warm or cool\n"
         f"- Font pairing: heading font (Google Fonts name), body font (Google Fonts name)\n"
         f"- Hero layout: implement the hero paradigm — specific composition description\n"
         f"- Visual mood: exactly 3 adjectives SPECIFIC to this business\n"
         f"- Confirm animation assignments: list each section + technique in one word\n\n"
-        f"Max 200 words. These values go directly into React/CSS code — be precise."
+        f"Max 220 words. These values go directly into React/CSS code — be precise."
     )
 
 
@@ -1373,11 +1488,18 @@ def generate_demo(lead: dict, conn) -> str | None:
     # Stage 5: Sonnet — design brief (Sonnet understands design intent better than Haiku)
     _set_sub_stage(conn, lead_id, "design_brief")
     print(f"[demo] Generating design brief for lead {lead_id}...")
-    # Pick animation assignments once — shared between brief (Sonnet) and codegen (Fable)
+    # Pick animation assignments + palette once — shared between brief (Sonnet) and codegen (Fable)
     picked_animations = _pick_animations(category, k=6)
+    suggested_palette = _get_suggested_palette(category)
+    scraped_colors = content.get("colors") or []
 
     design_brief = claude_p(
-        prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured, content.get("design_analysis"), picked_animations),
+        prompt=_build_design_brief_prompt(
+            lead, inspiration, ref_css, structured,
+            content.get("design_analysis"), picked_animations,
+            scraped_colors=scraped_colors,
+            suggested_palette=suggested_palette,
+        ),
         system=_BRIEF_SYSTEM_PROMPT,
         model="claude-sonnet-4-6",
         max_tokens=700,
