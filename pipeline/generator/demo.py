@@ -110,6 +110,47 @@ _HERO_PARADIGMS = [
 ]
 _MOTION_LEVELS = [6, 7, 7, 8]  # weighted toward higher motion
 
+# Traditional professions where serif headings are appropriate
+_SERIF_CATEGORIES = {"Anwalt", "Rechtsanwalt", "Notar", "Arzt", "Zahnarzt", "Steuerberater", "Architekt"}
+# Professions that suit a light/clean background (not dark OLED by default)
+_LIGHT_MODE_CATEGORIES = {"Zahnarzt", "Physiotherapeut", "Kosmetik", "Optiker", "Apotheke", "Kinderarzt", "Hebamme"}
+# Professions that suit a dark/moody background
+_DARK_MODE_CATEGORIES = {"Bar", "Restaurant", "Club", "DJ", "Fotograf", "Tattoo", "Barbier"}
+
+_STANDOUT_ANIMATIONS = [
+    "GSAP ScrollTrigger image scale scrub: images start at scale 0.8 and grow to 1.0 as they enter the viewport, then fade to opacity 0.2 as they exit",
+    "GSAP text opacity reveal: individual words in a key paragraph scrub from opacity 0.1 to 1.0 as the user scrolls through the section",
+    "Framer Motion whileInView stagger cascade: service cards enter with translateY(40px) + opacity 0 staggered at 80ms intervals, custom ease [0.16,1,0.3,1]",
+    "clip-path wipe reveal: key headline or image revealed via clip-path inset animating from inset(0 100% 0 0) to inset(0 0 0 0) on scroll entry",
+    "GSAP card pinning stack: sections pin and stack on top of each other (pin:true, pinSpacing:false, scrub:true) creating a layered storytelling effect",
+]
+
+_BRIEF_SYSTEM_PROMPT = """You are a senior UI/UX designer writing design briefs for premium React websites.
+
+HARD RULES — the brief must respect all of these:
+
+COLOR:
+- No AI-purple/blue gradient as primary accent (#6366f1, #7C3AED, #3B82F6, #8B5CF6 etc.) — most common AI fingerprint
+- Exactly 1 accent color. Every CTA and highlight uses this exact accent, nothing else
+- Accent saturation below 80% — desaturate so it blends, not screams
+- No pure #000000 background — use off-blacks: #050505, #0a0a0a, #111111
+- No beige+brass combination for "premium" — overused and reads as template
+- Shadows tinted to match background hue — never pure rgba(0,0,0,0.3)
+- ONE gray family only (warm OR cool) — never mix warm and cool grays in the same design
+- Flat solid background is sterile — specify one of: subtle radial gradient, CSS noise overlay (opacity 0.02-0.04), or mesh gradient
+
+FONTS:
+- Banned: Inter, Roboto, Arial, Open Sans, Helvetica
+- Sans options: Geist, Outfit, Cabinet Grotesk, Satoshi, Plus Jakarta Sans, Raleway, Syne, DM Sans
+- Traditional professions (Anwalt, Notar, Arzt, Steuerberater, Architekt): consider a serif heading (Fraunces, Playfair Display, Cormorant Garamond) paired with a clean sans body
+
+MOOD ADJECTIVES:
+- Must be specific to this exact business — never generic AI defaults
+- Banned: elegant, modern, professionell, innovativ, nahtlos, vertrauenswürdig, hochwertig
+- Good examples: handwerklich + bodenständig + ehrlich / urban + präzise + direkt / warm + familiär + verlässlich
+
+Output ONLY the requested brief fields. No preamble, no markdown headers, no explanation."""
+
 
 def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None) -> str:
     css_summary = ""
@@ -121,7 +162,6 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         if parts:
             css_summary = "Extracted from reference site:\n" + "\n".join(parts[:5])
 
-    # Business-specific context for a unique brief per lead
     services_preview = ""
     if structured:
         svcs = structured.get("services") or []
@@ -138,32 +178,50 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
     if lead.get("google_rating"):
         rating_info = f"Google rating: {lead['google_rating']} ({lead.get('google_reviews', '')} reviews)"
 
+    # Business-type hints
+    category = lead.get("category", "")
+    if category in _LIGHT_MODE_CATEGORIES:
+        mode_hint = f"Mode hint: {category} businesses read as clean and trustworthy — light background (white, off-white, or very light grey) is strongly preferred over dark OLED."
+    elif category in _DARK_MODE_CATEGORIES:
+        mode_hint = f"Mode hint: {category} businesses suit a dark, atmospheric background (zinc-950, #0a0a0a, deep navy). Dark mode preferred."
+    else:
+        mode_hint = "Mode: choose dark or light based on the business personality from the brief context — do not default to dark just because it looks premium."
+
+    serif_hint = ""
+    if category in _SERIF_CATEGORIES:
+        serif_hint = f"Font note: {category} is a traditional profession — a serif heading font (Fraunces, Playfair Display, Cormorant Garamond) paired with a sans body is appropriate and differentiating."
+
     # Randomly select archetypes to force visual variance between generations
     vibe = random.choice(_VIBE_ARCHETYPES)
     layout = random.choice(_LAYOUT_ARCHETYPES)
     hero = random.choice(_HERO_PARADIGMS)
     motion = random.choice(_MOTION_LEVELS)
+    standout = random.choice(_STANDOUT_ANIMATIONS)
 
     return (
-        f"You are a senior UI/UX designer. Create a concise, BUSINESS-SPECIFIC design brief for:\n\n"
-        f"Business: {lead.get('name', '')} ({lead.get('category', '')}) in {lead.get('district', 'Berlin')}\n"
+        f"Create a concise, BUSINESS-SPECIFIC design brief for:\n\n"
+        f"Business: {lead.get('name', '')} ({category}) in {lead.get('district', 'Berlin')}\n"
         f"{services_preview}\n{about_preview}\n{rating_info}\n\n"
-        f"Category archetype (inspiration only, do NOT copy directly):\n{inspiration}\n\n"
+        f"{mode_hint}\n"
+        f"{serif_hint}\n\n"
+        f"Category inspiration (do NOT copy directly — use as mood reference only):\n{inspiration}\n\n"
         f"{css_summary}\n\n"
         f"FORCED DESIGN DIRECTION for this generation (implement exactly):\n"
         f"- Vibe archetype: {vibe}\n"
         f"- Layout archetype: {layout}\n"
         f"- Hero paradigm: {hero}\n"
-        f"- Motion intensity: {motion}/10 (implement scroll reveals + hover physics accordingly)\n\n"
-        f"Write a design brief with EXACTLY these fields (concrete values, no vague words):\n"
-        f"- Color palette: primary hex, secondary hex, accent hex, background hex, text hex\n"
-        f"  (Choose colors that fit THIS specific business's personality, NOT the generic {lead.get('category','')} cliché)\n"
-        f"- Font pairing: heading font name (Google Fonts), body font name (Google Fonts)\n"
-        f"  (Banned as defaults: Inter, Roboto, Arial. Use Geist, Outfit, Cabinet Grotesk, Satoshi, Plus Jakarta Sans, etc.)\n"
-        f"- Hero layout: implement the hero paradigm above\n"
-        f"- Visual mood: exactly 3 adjectives specific to this business\n"
-        f"- Standout element: one specific scroll animation or micro-interaction detail that makes this site memorable\n\n"
-        f"Max 150 words. These values go directly into React/CSS code."
+        f"- Motion intensity: {motion}/10\n"
+        f"- Standout animation (implement this exact technique): {standout}\n\n"
+        f"Write a brief with EXACTLY these fields (concrete values only, no vague words):\n"
+        f"- Color palette: background hex, text hex, accent hex (1 only), surface hex, shadow tint hex\n"
+        f"  Justify accent choice in 5 words — why this color for THIS business\n"
+        f"- Background texture: specify one of radial-gradient / noise-overlay / mesh-gradient / clean-flat + reasoning\n"
+        f"- Gray family: warm or cool — stick to one throughout\n"
+        f"- Font pairing: heading font (Google Fonts name), body font (Google Fonts name)\n"
+        f"- Hero layout: implement the hero paradigm above — be specific about composition\n"
+        f"- Visual mood: exactly 3 adjectives SPECIFIC to this business (not generic)\n"
+        f"- Standout element: confirm the animation from above + one sentence on implementation\n\n"
+        f"Max 180 words. These values go directly into React/CSS code — be precise."
     )
 
 
@@ -889,8 +947,9 @@ def generate_demo(lead: dict, conn) -> str | None:
     print(f"[demo] Generating design brief for lead {lead_id}...")
     design_brief = claude_p(
         prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured),
+        system=_BRIEF_SYSTEM_PROMPT,
         model="claude-sonnet-4-6",
-        max_tokens=600,
+        max_tokens=700,
         conn=conn,
         lead_id=lead_id,
         stage="design_brief",
