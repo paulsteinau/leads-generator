@@ -114,63 +114,235 @@ _MOTION_LEVELS = [6, 7, 7, 8]  # weighted toward higher motion
 _ANIMATION_TECHNIQUES = [
     {
         "name": "curtain-cascade",
-        "desc": "Headline words/lines stagger in from y:80 opacity:0, 120ms apart, spring ease. Use for hero headlines.",
+        "desc": "Hero headline words stagger in from y:80 opacity:0, 120ms apart, spring ease.",
+        "snippet": """\
+const words = headline.split(' ');
+<motion.h1>
+  {words.map((word, i) => (
+    <motion.span key={i} style={{display:'inline-block',marginRight:'0.25em'}}
+      initial={{opacity:0, y:60}}
+      animate={{opacity:1, y:0}}
+      transition={{delay:i*0.12, duration:0.7, ease:[0.16,1,0.3,1]}}>
+      {word}
+    </motion.span>
+  ))}
+</motion.h1>""",
     },
     {
         "name": "slide-from-left",
-        "desc": "Element enters from x:-100 opacity:0 → x:0 opacity:1. Perfect for images or text blocks on the left side of a layout.",
+        "desc": "Element slides in from x:-80 opacity:0 on scroll entry. For images or left-side content.",
+        "snippet": """\
+<motion.div
+  initial={{opacity:0, x:-80}}
+  whileInView={{opacity:1, x:0}}
+  viewport={{once:true, amount:0.3}}
+  transition={{duration:0.7, ease:[0.16,1,0.3,1]}}>
+  {/* image or content block */}
+</motion.div>""",
     },
     {
         "name": "slide-from-right",
-        "desc": "Element enters from x:100 opacity:0 → x:0 opacity:1. Use for images or content blocks on the right side.",
+        "desc": "Element slides in from x:80 opacity:0 on scroll entry. For images or right-side content.",
+        "snippet": """\
+<motion.div
+  initial={{opacity:0, x:80}}
+  whileInView={{opacity:1, x:0}}
+  viewport={{once:true, amount:0.3}}
+  transition={{duration:0.7, ease:[0.16,1,0.3,1]}}>
+  {/* image or content block */}
+</motion.div>""",
     },
     {
         "name": "text-scrub-reveal",
-        "desc": "GSAP ScrollTrigger: wrap each word in <span>. Scrub word opacity from 0.08 → 1 sequentially as user scrolls through. Entire paragraph 'writes itself' as the user reads.",
+        "desc": "GSAP ScrollTrigger: paragraph writes itself word-by-word as user scrolls through the section.",
+        "snippet": """\
+// Wrap each word in a span with className="scrub-word"
+useEffect(() => {
+  const ctx = gsap.context(() => {
+    gsap.fromTo('.scrub-word',
+      {opacity:0.08},
+      {opacity:1, stagger:0.05,
+       scrollTrigger:{trigger:'.scrub-section',start:'top 70%',end:'bottom 30%',scrub:1}});
+  });
+  return () => ctx.revert();
+}, []);
+// JSX: <p className="scrub-section">{text.split(' ').map((w,i)=><span key={i} className="scrub-word">{w} </span>)}</p>""",
     },
     {
         "name": "typewriter",
-        "desc": "Key heading or tagline animates character by character as if being typed live, using setInterval + useState. Include a blinking cursor at the end.",
+        "desc": "Characters appear one-by-one as if typed live, with a blinking cursor.",
+        "snippet": """\
+const [displayed, setDisplayed] = useState('');
+const fullText = 'Your headline here'; // replace with actual text
+useEffect(() => {
+  let i = 0;
+  const id = setInterval(() => {
+    setDisplayed(fullText.slice(0, ++i));
+    if (i >= fullText.length) clearInterval(id);
+  }, 55);
+  return () => clearInterval(id);
+}, []);
+// JSX: <h1>{displayed}<span style={{animation:'blink 1s step-end infinite'}}>|</span></h1>
+// CSS: @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}""",
     },
     {
         "name": "clip-path-wipe",
-        "desc": "Image or section block reveals via clip-path: inset(0 100% 0 0) → inset(0 0 0 0) on scroll entry. Smooth horizontal wipe left-to-right.",
+        "desc": "Horizontal wipe: clip-path inset(0 100% 0 0) → inset(0 0 0 0) reveals image or block.",
+        "snippet": """\
+<motion.div
+  initial={{clipPath:'inset(0 100% 0 0)'}}
+  whileInView={{clipPath:'inset(0 0% 0 0)'}}
+  viewport={{once:true, amount:0.4}}
+  transition={{duration:0.9, ease:[0.32,0.72,0,1]}}>
+  {/* image or content block */}
+</motion.div>""",
     },
     {
         "name": "spring-pop",
-        "desc": "Cards or items scale from 0.85+opacity:0 → scale:1+opacity:1 with Framer Motion spring { duration:0.5, bounce:0.2 }, staggered at 80ms.",
+        "desc": "Cards scale from 0.85+opacity:0 with spring physics, staggered 80ms.",
+        "snippet": """\
+const container = {hidden:{}, show:{transition:{staggerChildren:0.08}}};
+const item = {
+  hidden:{opacity:0, scale:0.85},
+  show:{opacity:1, scale:1, transition:{type:'spring',duration:0.5,bounce:0.2}}
+};
+<motion.div variants={container} initial="hidden" whileInView="show" viewport={{once:true}}>
+  {cards.map((c,i) => <motion.div key={i} variants={item}>{/* card */}</motion.div>)}
+</motion.div>""",
     },
     {
         "name": "gsap-pin-text",
-        "desc": "GSAP ScrollTrigger: section heading/image pins on one side (pin:true) while a column of cards or paragraphs scrolls past it on the other side.",
+        "desc": "Section heading pins on one side (GSAP pin:true) while cards/text scroll past on the other.",
+        "snippet": """\
+useEffect(() => {
+  const ctx = gsap.context(() => {
+    ScrollTrigger.create({
+      trigger:'.pin-section', start:'top top', end:'bottom bottom',
+      pin:'.pin-left', pinSpacing:false,
+    });
+  });
+  return () => ctx.revert();
+}, []);
+// JSX: <div className="pin-section flex min-h-[200vh]">
+//   <div className="pin-left w-1/2 h-screen sticky top-0 flex items-center">heading</div>
+//   <div className="w-1/2">{scrolling content}</div>
+// </div>""",
     },
     {
         "name": "parallax-layers",
-        "desc": "Framer Motion useScroll+useTransform: background image moves at 0.3x scroll speed, foreground text at 0.7x. Depth parallax without JS overhead.",
+        "desc": "Background moves at 0.3x scroll speed, foreground text at 0.7x — depth parallax.",
+        "snippet": """\
+const ref = useRef(null);
+const {scrollYProgress} = useScroll({target:ref, offset:['start end','end start']});
+const bgY = useTransform(scrollYProgress, [0,1], ['0%','30%']);
+const fgY = useTransform(scrollYProgress, [0,1], ['0%','-15%']);
+// JSX:
+<section ref={ref} style={{overflow:'hidden', position:'relative', minHeight:'100dvh'}}>
+  <motion.div style={{y:bgY, position:'absolute', inset:0, zIndex:0}}>
+    <img src={bgImg} style={{width:'100%',height:'120%',objectFit:'cover'}} />
+  </motion.div>
+  <motion.div style={{y:fgY, position:'relative', zIndex:1, padding:'8rem 2rem'}}>
+    {/* headline and text */}
+  </motion.div>
+</section>""",
     },
     {
         "name": "blur-emerge",
-        "desc": "Elements enter from filter:blur(12px)+opacity:0+y:40 → blur(0)+opacity:1+y:0 over 800ms. Focus-pull effect as if camera zooms in.",
+        "desc": "Elements enter from blur(12px)+y:40+opacity:0 → sharp — focus-pull effect.",
+        "snippet": """\
+<motion.div
+  initial={{opacity:0, y:40, filter:'blur(12px)'}}
+  whileInView={{opacity:1, y:0, filter:'blur(0px)'}}
+  viewport={{once:true, amount:0.3}}
+  transition={{duration:0.8, ease:[0.16,1,0.3,1]}}>
+  {/* content */}
+</motion.div>""",
     },
     {
         "name": "count-up",
-        "desc": "Stat/number elements animate from 0 to final value over 1200ms easeOut, triggered by IntersectionObserver when section enters viewport.",
+        "desc": "Numbers animate from 0 to final value over 1200ms via IntersectionObserver.",
+        "snippet": """\
+function CountUp({end, suffix=''}) {
+  const [val, setVal] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      let cur = 0; const step = end / 60;
+      const t = setInterval(() => {
+        cur += step;
+        if (cur >= end) { setVal(end); clearInterval(t); return; }
+        setVal(Math.floor(cur));
+      }, 20);
+      obs.disconnect();
+    }, {threshold:0.5});
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [end]);
+  return <span ref={ref}>{val}{suffix}</span>;
+}
+// Usage: <CountUp end={127} suffix=" Kunden" />""",
     },
     {
         "name": "horizontal-marquee",
-        "desc": "Infinite CSS animation: content scrolls horizontally in a loop. Used for review snippets, partner logos, or service tags. 30s linear infinite.",
+        "desc": "Infinite CSS loop: items scroll horizontally. For reviews, logos, or service tags.",
+        "snippet": """\
+// Add to <style> tag: @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+<div style={{overflow:'hidden', width:'100%'}}>
+  <div style={{display:'flex', width:'max-content',
+    animation:'marquee 30s linear infinite'}}>
+    {[...items, ...items].map((item, i) => (
+      <div key={i} style={{flexShrink:0, padding:'0 2.5rem'}}>{item}</div>
+    ))}
+  </div>
+</div>""",
     },
     {
         "name": "alternating-slide",
-        "desc": "Feature rows alternate: odd from x:-80 opacity:0, even from x:80 opacity:0 → center. Creates a zigzag entry rhythm.",
+        "desc": "Odd rows from x:-80, even from x:80 — zigzag entry rhythm across the section.",
+        "snippet": """\
+{items.map((item, i) => (
+  <motion.div key={i}
+    initial={{opacity:0, x: i % 2 === 0 ? -80 : 80}}
+    whileInView={{opacity:1, x:0}}
+    viewport={{once:true, amount:0.3}}
+    transition={{duration:0.7, ease:[0.16,1,0.3,1]}}>
+    {/* item content */}
+  </motion.div>
+))}""",
     },
     {
         "name": "gsap-card-stack",
-        "desc": "GSAP ScrollTrigger: cards pin and stack sequentially (pin:true, pinSpacing:false, scrub:true). Each card slides over the previous as user scrolls.",
+        "desc": "GSAP: cards pin and layer on top of each other as user scrolls down.",
+        "snippet": """\
+useEffect(() => {
+  const ctx = gsap.context(() => {
+    gsap.utils.toArray('.stack-card').forEach((card, i) => {
+      ScrollTrigger.create({
+        trigger: card,
+        start: `top ${60 - i * 5}px`,
+        end: 'max',
+        pin: true,
+        pinSpacing: false,
+      });
+    });
+  });
+  return () => ctx.revert();
+}, []);
+// JSX: each card needs className="stack-card" and style={{zIndex: i+1}}""",
     },
     {
         "name": "scale-reveal",
-        "desc": "Image starts at scale:1.15 inside overflow-hidden container, animates to scale:1.0 on scroll entry. Gives a zooming-into-frame cinematic feel.",
+        "desc": "Image scale:1.15→1.0 inside overflow-hidden — zoom-into-frame on scroll entry.",
+        "snippet": """\
+<div style={{overflow:'hidden', borderRadius:'1rem'}}>
+  <motion.img src={src} alt={alt}
+    initial={{scale:1.15}}
+    whileInView={{scale:1.0}}
+    viewport={{once:true, amount:0.3}}
+    transition={{duration:1.0, ease:[0.16,1,0.3,1]}}
+    style={{width:'100%', height:'100%', objectFit:'cover', display:'block'}} />
+</div>""",
     },
 ]
 
@@ -208,7 +380,7 @@ MOOD ADJECTIVES:
 Output ONLY the requested brief fields. No preamble, no markdown headers, no explanation."""
 
 
-def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None) -> str:
+def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, structured: dict | None = None, design_analysis: dict | None = None, picked_animations: list | None = None) -> str:
     css_summary = ""
     if ref_css.get("computed"):
         parts = []
@@ -292,7 +464,7 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
     hero = random.choice(_HERO_PARADIGMS)
     motion = random.choice(_MOTION_LEVELS)
 
-    # Draw 6 unique animation techniques for this generation — no two adjacent sections alike
+    # Use pre-selected animation assignments (generated once in generate_demo for reuse in codegen)
     section_labels = [
         "Hero section",
         "Services / Leistungen section",
@@ -301,7 +473,7 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         "FAQ or secondary content section",
         "Kontakt / CTA section",
     ]
-    picked_techniques = random.sample(_ANIMATION_TECHNIQUES, k=min(6, len(_ANIMATION_TECHNIQUES)))
+    picked_techniques = picked_animations or random.sample(_ANIMATION_TECHNIQUES, k=min(6, len(_ANIMATION_TECHNIQUES)))
     animation_assignments = "\n".join(
         f"  - {label}: [{t['name']}] {t['desc']}"
         for label, t in zip(section_labels, picked_techniques)
@@ -413,6 +585,28 @@ def _post_process_jsx(jsx: str, design_brief: str = "") -> tuple[str, list[str]]
     return jsx, warnings
 
 
+def _build_animation_checklist(picked_animations: list) -> str:
+    """Build the mandatory animation implementation checklist for the codegen prompt."""
+    section_labels = [
+        "Hero section",
+        "Services / Leistungen",
+        "Über uns / About",
+        "Bewertungen / Stats",
+        "FAQ or secondary section",
+        "Kontakt / CTA",
+    ]
+    lines = ["## ANIMATION IMPLEMENTATION CHECKLIST — ALL 6 ARE MANDATORY",
+             "Implement each technique in its exact section. Do NOT substitute, skip, or reuse a technique.",
+             "Do NOT default to generic whileInView={{opacity:0,y:32}} for any of these sections.\n"]
+    for label, tech in zip(section_labels, picked_animations):
+        lines.append(f"### {label} → [{tech['name']}]")
+        lines.append(f"// {tech['desc']}")
+        lines.append("```jsx")
+        lines.append(tech["snippet"])
+        lines.append("```\n")
+    return "\n".join(lines)
+
+
 def _build_codegen_prompt(
     lead: dict,
     content: dict,
@@ -422,6 +616,7 @@ def _build_codegen_prompt(
     slug: str,
     n_ref_screenshots: int = 0,
     n_lead_screenshots: int = 0,
+    picked_animations: list | None = None,
 ) -> str:
     # Services: prefer Haiku-extracted, fall back to heuristic
     services_list = structured.get("services") or content.get("services", [])
@@ -588,7 +783,10 @@ The Nav must link to all routes and show the active route visually.
         f"Never use source.unsplash.com — that endpoint is shut down.\n"
     )
 
+    animation_checklist = _build_animation_checklist(picked_animations) if picked_animations else ""
+
     return f"""
+{animation_checklist}
 {screenshot_context}Generate a complete single-file React App.jsx for this German business demo website.
 {routes_section}
 
@@ -1135,8 +1333,11 @@ def generate_demo(lead: dict, conn) -> str | None:
     # Stage 5: Sonnet — design brief (Sonnet understands design intent better than Haiku)
     _set_sub_stage(conn, lead_id, "design_brief")
     print(f"[demo] Generating design brief for lead {lead_id}...")
+    # Pick animation assignments once — shared between brief (Sonnet) and codegen (Fable)
+    picked_animations = random.sample(_ANIMATION_TECHNIQUES, k=min(6, len(_ANIMATION_TECHNIQUES)))
+
     design_brief = claude_p(
-        prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured, content.get("design_analysis")),
+        prompt=_build_design_brief_prompt(lead, inspiration, ref_css, structured, content.get("design_analysis"), picked_animations),
         system=_BRIEF_SYSTEM_PROMPT,
         model="claude-sonnet-4-6",
         max_tokens=700,
@@ -1173,6 +1374,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         slug=slug,
         n_ref_screenshots=len(ref_screenshots),
         n_lead_screenshots=len(lead_screenshots),
+        picked_animations=picked_animations,
     )
 
     app_jsx = claude_p(
