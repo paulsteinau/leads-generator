@@ -110,20 +110,76 @@ _HERO_PARADIGMS = [
 ]
 _MOTION_LEVELS = [6, 7, 7, 8]  # weighted toward higher motion
 
+# Animation technique pool — one per section, randomly sampled each generation
+_ANIMATION_TECHNIQUES = [
+    {
+        "name": "curtain-cascade",
+        "desc": "Headline words/lines stagger in from y:80 opacity:0, 120ms apart, spring ease. Use for hero headlines.",
+    },
+    {
+        "name": "slide-from-left",
+        "desc": "Element enters from x:-100 opacity:0 → x:0 opacity:1. Perfect for images or text blocks on the left side of a layout.",
+    },
+    {
+        "name": "slide-from-right",
+        "desc": "Element enters from x:100 opacity:0 → x:0 opacity:1. Use for images or content blocks on the right side.",
+    },
+    {
+        "name": "text-scrub-reveal",
+        "desc": "GSAP ScrollTrigger: wrap each word in <span>. Scrub word opacity from 0.08 → 1 sequentially as user scrolls through. Entire paragraph 'writes itself' as the user reads.",
+    },
+    {
+        "name": "typewriter",
+        "desc": "Key heading or tagline animates character by character as if being typed live, using setInterval + useState. Include a blinking cursor at the end.",
+    },
+    {
+        "name": "clip-path-wipe",
+        "desc": "Image or section block reveals via clip-path: inset(0 100% 0 0) → inset(0 0 0 0) on scroll entry. Smooth horizontal wipe left-to-right.",
+    },
+    {
+        "name": "spring-pop",
+        "desc": "Cards or items scale from 0.85+opacity:0 → scale:1+opacity:1 with Framer Motion spring { duration:0.5, bounce:0.2 }, staggered at 80ms.",
+    },
+    {
+        "name": "gsap-pin-text",
+        "desc": "GSAP ScrollTrigger: section heading/image pins on one side (pin:true) while a column of cards or paragraphs scrolls past it on the other side.",
+    },
+    {
+        "name": "parallax-layers",
+        "desc": "Framer Motion useScroll+useTransform: background image moves at 0.3x scroll speed, foreground text at 0.7x. Depth parallax without JS overhead.",
+    },
+    {
+        "name": "blur-emerge",
+        "desc": "Elements enter from filter:blur(12px)+opacity:0+y:40 → blur(0)+opacity:1+y:0 over 800ms. Focus-pull effect as if camera zooms in.",
+    },
+    {
+        "name": "count-up",
+        "desc": "Stat/number elements animate from 0 to final value over 1200ms easeOut, triggered by IntersectionObserver when section enters viewport.",
+    },
+    {
+        "name": "horizontal-marquee",
+        "desc": "Infinite CSS animation: content scrolls horizontally in a loop. Used for review snippets, partner logos, or service tags. 30s linear infinite.",
+    },
+    {
+        "name": "alternating-slide",
+        "desc": "Feature rows alternate: odd from x:-80 opacity:0, even from x:80 opacity:0 → center. Creates a zigzag entry rhythm.",
+    },
+    {
+        "name": "gsap-card-stack",
+        "desc": "GSAP ScrollTrigger: cards pin and stack sequentially (pin:true, pinSpacing:false, scrub:true). Each card slides over the previous as user scrolls.",
+    },
+    {
+        "name": "scale-reveal",
+        "desc": "Image starts at scale:1.15 inside overflow-hidden container, animates to scale:1.0 on scroll entry. Gives a zooming-into-frame cinematic feel.",
+    },
+]
+
 # Traditional professions where serif headings are appropriate
 _SERIF_CATEGORIES = {"Anwalt", "Rechtsanwalt", "Notar", "Arzt", "Zahnarzt", "Steuerberater", "Architekt"}
 # Professions that suit a light/clean background (not dark OLED by default)
 _LIGHT_MODE_CATEGORIES = {"Zahnarzt", "Physiotherapeut", "Kosmetik", "Optiker", "Apotheke", "Kinderarzt", "Hebamme"}
 # Professions that suit a dark/moody background
 _DARK_MODE_CATEGORIES = {"Bar", "Restaurant", "Club", "DJ", "Fotograf", "Tattoo", "Barbier"}
-
-_STANDOUT_ANIMATIONS = [
-    "GSAP ScrollTrigger image scale scrub: images start at scale 0.8 and grow to 1.0 as they enter the viewport, then fade to opacity 0.2 as they exit",
-    "GSAP text opacity reveal: individual words in a key paragraph scrub from opacity 0.1 to 1.0 as the user scrolls through the section",
-    "Framer Motion whileInView stagger cascade: service cards enter with translateY(40px) + opacity 0 staggered at 80ms intervals, custom ease [0.16,1,0.3,1]",
-    "clip-path wipe reveal: key headline or image revealed via clip-path inset animating from inset(0 100% 0 0) to inset(0 0 0 0) on scroll entry",
-    "GSAP card pinning stack: sections pin and stack on top of each other (pin:true, pinSpacing:false, scrub:true) creating a layered storytelling effect",
-]
 
 _BRIEF_SYSTEM_PROMPT = """You are a senior UI/UX designer writing design briefs for premium React websites.
 
@@ -235,7 +291,21 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
     layout = random.choice(_LAYOUT_ARCHETYPES)
     hero = random.choice(_HERO_PARADIGMS)
     motion = random.choice(_MOTION_LEVELS)
-    standout = random.choice(_STANDOUT_ANIMATIONS)
+
+    # Draw 6 unique animation techniques for this generation — no two adjacent sections alike
+    section_labels = [
+        "Hero section",
+        "Services / Leistungen section",
+        "Über uns / About section",
+        "Bewertungen / Stats section",
+        "FAQ or secondary content section",
+        "Kontakt / CTA section",
+    ]
+    picked_techniques = random.sample(_ANIMATION_TECHNIQUES, k=min(6, len(_ANIMATION_TECHNIQUES)))
+    animation_assignments = "\n".join(
+        f"  - {label}: [{t['name']}] {t['desc']}"
+        for label, t in zip(section_labels, picked_techniques)
+    )
 
     return (
         f"Create a concise, BUSINESS-SPECIFIC design brief for:\n\n"
@@ -246,22 +316,24 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"{analysis_block}\n"
         f"Category inspiration (do NOT copy directly — use as mood reference only):\n{inspiration}\n\n"
         f"{css_summary}\n\n"
-        f"FORCED DESIGN DIRECTION for this generation (implement exactly):\n"
+        f"FORCED DESIGN DIRECTION for this generation (implement ALL of these exactly):\n"
         f"- Vibe archetype: {vibe}\n"
         f"- Layout archetype: {layout}\n"
         f"- Hero paradigm: {hero}\n"
-        f"- Motion intensity: {motion}/10\n"
-        f"- Standout animation (implement this exact technique): {standout}\n\n"
+        f"- Motion intensity: {motion}/10\n\n"
+        f"ANIMATION ASSIGNMENTS — implement each technique in its assigned section. "
+        f"These are unique to this generation and must not be swapped:\n"
+        f"{animation_assignments}\n\n"
         f"Write a brief with EXACTLY these fields (concrete values only, no vague words):\n"
         f"- Color palette: background hex, text hex, accent hex (1 only), surface hex, shadow tint hex\n"
-        f"  Justify accent choice in 5 words — why this color for THIS business\n"
-        f"- Background texture: specify one of radial-gradient / noise-overlay / mesh-gradient / clean-flat + reasoning\n"
-        f"- Gray family: warm or cool — stick to one throughout\n"
+        f"  Justify accent in 5 words — why this color for THIS specific business\n"
+        f"- Background texture: radial-gradient / noise-overlay / mesh-gradient / clean-flat + one sentence why\n"
+        f"- Gray family: warm or cool\n"
         f"- Font pairing: heading font (Google Fonts name), body font (Google Fonts name)\n"
-        f"- Hero layout: implement the hero paradigm above — be specific about composition\n"
-        f"- Visual mood: exactly 3 adjectives SPECIFIC to this business (not generic)\n"
-        f"- Standout element: confirm the animation from above + one sentence on implementation\n\n"
-        f"Max 180 words. These values go directly into React/CSS code — be precise."
+        f"- Hero layout: implement the hero paradigm — specific composition description\n"
+        f"- Visual mood: exactly 3 adjectives SPECIFIC to this business\n"
+        f"- Confirm animation assignments: list each section + technique in one word\n\n"
+        f"Max 200 words. These values go directly into React/CSS code — be precise."
     )
 
 

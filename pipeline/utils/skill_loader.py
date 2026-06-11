@@ -104,19 +104,27 @@ with "// rest of code" or similar. A partial output is a broken output.
   Pattern: initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }}
 
 ## ANIMATION VARIETY — MANDATORY
-Each major section uses a DIFFERENT animation technique. Using the same pattern in 2+ consecutive sections = broken output.
-Assign techniques to sections in this order (never repeat adjacent techniques):
+Each major section MUST use the animation technique assigned to it in the Design Brief.
+The Design Brief contains an "ANIMATION ASSIGNMENTS" block listing a specific technique per section — implement each one exactly as described.
+NEVER use the same animation pattern in two consecutive sections.
+NEVER default to generic `whileInView={{ opacity: 0, y: 32 }}` for every section — that is the definition of AI-slop.
 
-1. HERO: Staggered curtain — headline words cascade in with `opacity: 0, y: 60` staggered at 120ms. CTA button enters last with `scale: 0.9, opacity: 0`.
-2. SERVICES/LEISTUNGEN: Alternating directions — odd cards from `x: -60, opacity: 0`, even cards from `x: 60, opacity: 0`. Never all from below.
-3. ÜBER UNS / ABOUT: GSAP ScrollTrigger — image pinned on one side while text paragraphs reveal sequentially as user scrolls.
-4. BEWERTUNGEN / TESTIMONIALS: Horizontal marquee (infinite loop CSS animation) OR staggered pop-in from `scale: 0.85, opacity: 0` with spring physics.
-5. STATS / NUMBERS: Count-up on entry — use useEffect + IntersectionObserver to animate numbers from 0 to final value over 1200ms.
-6. FAQ / ACCORDION: Expand with `AnimatePresence` + `height: 0 → auto` via layout animation. Each answer slides down.
-7. KONTAKT / CTA SECTION: Simple `opacity: 0, y: 24 → opacity: 1, y: 0` (calm — this section closes, don't compete with hero).
-8. FOOTER: No animation. Users are done — don't distract.
-
-If the page doesn't have all 8 section types, apply the techniques to whatever sections exist, still using different techniques for each.
+Available techniques (you will find the assignment in the brief — these are descriptions for implementation reference):
+- curtain-cascade: words/lines stagger in from y:80, 120ms apart
+- slide-from-left: element from x:-100 opacity:0 → x:0 opacity:1
+- slide-from-right: element from x:100 opacity:0 → x:0 opacity:1
+- text-scrub-reveal: GSAP ScrollTrigger, wrap words in spans, scrub opacity 0.08→1 per word as user scrolls — paragraph "writes itself"
+- typewriter: characters appear one by one via setInterval + useState, blinking cursor at end
+- clip-path-wipe: clip-path inset(0 100% 0 0) → inset(0 0 0 0) horizontal wipe on entry
+- spring-pop: scale 0.85+opacity:0 → 1+opacity:1, spring { duration:0.5, bounce:0.2 }, staggered
+- gsap-pin-text: ScrollTrigger pin one side (pin:true), content scrolls on the other
+- parallax-layers: useScroll+useTransform, background 0.3x scroll, foreground 0.7x
+- blur-emerge: blur(12px)+y:40+opacity:0 → blur(0)+y:0+opacity:1 over 800ms
+- count-up: IntersectionObserver triggers number from 0→final over 1200ms easeOut
+- horizontal-marquee: CSS infinite scroll loop, 30s linear, logos/quotes/tags
+- alternating-slide: odd rows from x:-80, even from x:80 → center
+- gsap-card-stack: pin:true pinSpacing:false scrub:true, cards layer on scroll
+- scale-reveal: image scale:1.15 → 1.0 inside overflow-hidden on entry (zoom-into-frame)
 
 - ALWAYS custom cubic-bezier — NEVER linear, ease, ease-in-out built-ins:
   - Scroll reveals: { duration: 0.7, ease: [0.16, 1, 0.3, 1] }
