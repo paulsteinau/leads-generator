@@ -856,6 +856,31 @@ def _build_codegen_prompt(
 
     # Build route map: derive clean slug + label from URL path
     from urllib.parse import urlparse as _urlparse
+
+    # Category-specific standard routes used as fallback when scraping finds no subpages
+    _CATEGORY_ROUTES: dict[str, list[dict]] = {
+        "Anwalt":            [{"path": "/rechtsgebiete", "label": "Rechtsgebiete"}, {"path": "/team", "label": "Team"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Rechtsanwalt":      [{"path": "/rechtsgebiete", "label": "Rechtsgebiete"}, {"path": "/team", "label": "Team"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Notar":             [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/kanzlei", "label": "Kanzlei"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Steuerberater":     [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/team", "label": "Team"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Architekt":         [{"path": "/projekte", "label": "Projekte"}, {"path": "/leistungen", "label": "Leistungen"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Arzt":              [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/praxis", "label": "Praxis"}, {"path": "/team", "label": "Team"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Zahnarzt":          [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/praxis", "label": "Praxis"}, {"path": "/team", "label": "Team"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Physiotherapeut":   [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/praxis", "label": "Praxis"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Kosmetik":          [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/preise", "label": "Preise"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Immobilienmakler":  [{"path": "/immobilien", "label": "Immobilien"}, {"path": "/leistungen", "label": "Leistungen"}, {"path": "/team", "label": "Team"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Restaurant":        [{"path": "/speisekarte", "label": "Speisekarte"}, {"path": "/reservierung", "label": "Reservierung"}, {"path": "/ueber-uns", "label": "Über uns"}],
+        "Bar":               [{"path": "/karte", "label": "Karte"}, {"path": "/events", "label": "Events"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Fotograf":          [{"path": "/portfolio", "label": "Portfolio"}, {"path": "/leistungen", "label": "Leistungen"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Friseur":           [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/preise", "label": "Preise"}, {"path": "/kontakt", "label": "Kontakt"}],
+        "Barbier":           [{"path": "/leistungen", "label": "Leistungen"}, {"path": "/preise", "label": "Preise"}, {"path": "/kontakt", "label": "Kontakt"}],
+    }
+    _DEFAULT_ROUTES = [
+        {"path": "/leistungen", "label": "Leistungen"},
+        {"path": "/ueber-uns", "label": "Über uns"},
+        {"path": "/kontakt", "label": "Kontakt"},
+    ]
+
     routes: list[dict] = []
     seen_slugs: set = set()
     for url in subpage_urls[:8]:
@@ -868,22 +893,28 @@ def _build_codegen_prompt(
             continue
         seen_slugs.add(route_slug)
         label = parts[-1].replace("-", " ").replace("_", " ").title()
-        routes.append({"url": url, "path": f"/{route_slug}", "label": label})
+        routes.append({"path": f"/{route_slug}", "label": label})
 
-    routes_section = ""
-    if routes:
-        route_lines = "\n".join(
-            f'  - path="{r["path"]}" label="{r["label"]}" (content from: {r["url"]})'
-            for r in routes
-        )
-        routes_section = f"""
-## Subpages to Implement as React Router Routes
-The existing website has these subpages — each must become a real route:
+    # Always have routes — fall back to category standard if scraper found none
+    if not routes:
+        fallback = _CATEGORY_ROUTES.get(lead.get("category", ""), _DEFAULT_ROUTES)
+        routes = [r for r in fallback if r["path"].lstrip("/") not in seen_slugs]
+
+    route_lines = "\n".join(
+        f'  - path="{r["path"]}" label="{r["label"]}"'
+        + (f' (content from: {r["url"]})' if r.get("url") else " (generate content from business data)")
+        for r in routes
+    )
+    routes_section = f"""
+## Subpages — implement ALL as React Router routes (MANDATORY, not optional)
+Route "/" is the main marketing landing page (hero, key sections, CTA).
+These additional routes are REQUIRED — each is a dedicated full page component:
 {route_lines}
 
-Route "/" is the home/landing page (full marketing page with hero, key sections, CTA).
-Each subpage route renders its own dedicated page component with full content from the scraped data.
-The Nav must link to all routes and show the active route visually.
+NEVER build a single-page scroll app. Always use React Router with these routes.
+The Nav must link to ALL routes using <NavLink> with active styling.
+Each subpage must have its own full layout: hero/header, main content, CTA, footer.
+Content for generated pages: derive from business name, category, and all scraped data.
 """
 
     # Parse red flags
@@ -1122,7 +1153,7 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - Additional routes for each subpage listed above — each is its own page component
 - Nav uses <NavLink> with active styling (e.g. className={{{{ isActive }}}} => isActive ? 'underline' : '')
 - useLocation() for scroll-to-top on route change (useEffect on location.pathname)
-- If no subpages found: build a single-page app without router, just scroll sections
+- ALWAYS use React Router — never build a single-page scroll app
 
 ## Home Page Structure
 - Required: sticky Nav (always first) + Hero + Footer (always last)
