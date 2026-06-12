@@ -1,7 +1,8 @@
-import { getStats, getLeads, getCosts } from "@/lib/api";
+import { getStats, getLeads, getCosts, getFilterOptions } from "@/lib/api";
 import Link from "next/link";
 import DashboardShell from "./components/DashboardShell";
 import AddLeadButton from "./components/AddLeadButton";
+import FilterBar from "./components/FilterBar";
 
 const TIER_STYLES: Record<string, { badge: string; initials: string }> = {
   hot:  { badge: "bg-red-50 text-red-700 ring-1 ring-red-200",    initials: "bg-red-500 text-white" },
@@ -42,9 +43,7 @@ export default async function Home({
 }: {
   searchParams: Record<string, string>;
 }) {
-  const [stats, leads, costs] = await Promise.all([getStats(), getLeads(searchParams), getCosts()]);
-  const activeTier = searchParams.tier;
-  const activeStage = searchParams.stage;
+  const [stats, leads, costs, filterOptions] = await Promise.all([getStats(), getLeads(searchParams), getCosts(), getFilterOptions()]);
 
   const totalLeads = leads.length;
   const withEmail = leads.filter((l) => l.has_email).length;
@@ -150,43 +149,11 @@ export default async function Home({
 
       {/* Filters */}
       <div className="px-6 pb-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-300 mr-1">Filter:</span>
-          {[
-            { key: "tier", val: undefined, label: "Alle" },
-            { key: "tier", val: "hot",  label: "Hot" },
-            { key: "tier", val: "warm", label: "Warm" },
-            { key: "tier", val: "low",  label: "Low" },
-          ].map((f) => {
-            const isActive = f.val ? activeTier === f.val : !activeTier && !activeStage;
-            const href = f.val ? `?tier=${f.val}` : "/";
-            return (
-              <a
-                key={`${f.key}-${f.val ?? "all"}`}
-                href={href}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-gray-900 text-white"
-                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
-                }`}
-              >
-                {f.label}
-              </a>
-            );
-          })}
-          <div className="w-px h-4 bg-gray-100 mx-1" />
-          <a
-            href="?stage=ready_for_review"
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-              searchParams.stage === "ready_for_review"
-                ? "bg-orange-500 text-white"
-                : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
-            }`}
-          >
-            Review ausstehend
-          </a>
-          <span className="ml-auto text-xs text-gray-400 tabular">{totalLeads} Leads</span>
-        </div>
+        <FilterBar
+          categories={filterOptions.categories}
+          districts={filterOptions.districts}
+          totalLeads={totalLeads}
+        />
       </div>
 
       {/* Lead table */}
