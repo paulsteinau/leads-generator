@@ -569,6 +569,32 @@ def edit_demo(lead_id: int, body: EditDemoRequest):
 
 # ── Demo Source (read / update + redeploy) ───────────────────────────────────
 
+@app.post("/admin/backfill-demo-jsx")
+def backfill_demo_jsx():
+    """One-time: read App.jsx from filesystem for all leads that have a demo_url but no demo_jsx."""
+    from pipeline.generator.demo import _make_slug  # noqa: PLC0415
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, name FROM leads WHERE demo_url IS NOT NULL AND (demo_jsx IS NULL OR demo_jsx = '')"
+    ).fetchall()
+
+    ROOT_PATH = Path(__file__).parent.parent
+    ok, missing = [], []
+    for row in rows:
+        lead = dict(row)
+        slug = _make_slug(lead)
+        jsx_path = ROOT_PATH / "data" / "demos" / slug / "src" / "App.jsx"
+        if jsx_path.exists():
+            jsx = jsx_path.read_text(encoding="utf-8")
+            conn.execute("UPDATE leads SET demo_jsx=? WHERE id=?", (jsx, lead["id"]))
+            ok.append({"id": lead["id"], "name": lead["name"], "slug": slug})
+        else:
+            missing.append({"id": lead["id"], "name": lead["name"], "slug": slug})
+
+    conn.commit()
+    return {"backfilled": len(ok), "missing_file": len(missing), "ok": ok, "missing": missing}
+
+
 @app.get("/leads/{lead_id}/demo-source")
 def get_demo_source(lead_id: int):
     conn = get_conn()
