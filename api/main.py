@@ -243,12 +243,25 @@ def get_stats():
 
 # ── Leads ─────────────────────────────────────────────────────────────────────
 
+@app.get("/leads/filter-options")
+def get_filter_options():
+    conn = get_conn()
+    categories = [r[0] for r in conn.execute(
+        "SELECT DISTINCT category FROM leads WHERE category IS NOT NULL ORDER BY category"
+    ).fetchall()]
+    districts = [r[0] for r in conn.execute(
+        "SELECT DISTINCT district FROM leads WHERE district IS NOT NULL ORDER BY district"
+    ).fetchall()]
+    return {"categories": categories, "districts": districts}
+
+
 @app.get("/leads")
 def list_leads(
     tier: str | None = None,
     district: str | None = None,
     category: str | None = None,
     stage: str | None = None,
+    date_from: str | None = None,
 ) -> list[LeadSummary]:
     conn = get_conn()
     q = "SELECT * FROM leads WHERE 1=1"
@@ -258,6 +271,9 @@ def list_leads(
         if val:
             q += f" AND {col}=?"
             p.append(val)
+    if date_from:
+        q += " AND created_at >= ?"
+        p.append(date_from)
     q += " ORDER BY lead_score DESC"
     cutoff = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     return [

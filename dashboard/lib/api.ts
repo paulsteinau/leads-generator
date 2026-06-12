@@ -104,6 +104,9 @@ export const getLeads = (p?: Record<string, string>): Promise<LeadSummary[]> =>
     r.json()
   );
 
+export const getFilterOptions = (): Promise<{ categories: string[]; districts: string[] }> =>
+  fetch(`${API}/leads/filter-options`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
+
 export const getLead = (id: number): Promise<LeadDetail> =>
   fetch(`${API}/leads/${id}`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
