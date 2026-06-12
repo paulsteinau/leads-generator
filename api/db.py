@@ -116,6 +116,8 @@ def _apply_migrations(conn) -> None:
         "ALTER TABLE cost_log ADD COLUMN generation_num INTEGER DEFAULT 1",
         # demo source stored in DB so it can be retrieved/edited without Railway filesystem
         "ALTER TABLE leads ADD COLUMN demo_jsx TEXT",
+        # project type: new_website | redesign
+        "ALTER TABLE leads ADD COLUMN project_type TEXT",
     ]
     for sql in migrations:
         try:

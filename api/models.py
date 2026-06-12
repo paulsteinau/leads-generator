@@ -79,6 +79,7 @@ class ManualLeadRequest(BaseModel):
     email: Optional[str] = None
     lead_tier: str = "warm"
     notes: Optional[str] = None
+    project_type: Optional[str] = None  # "new_website" | "redesign"
 
 
 class ApproveEmailRequest(BaseModel):

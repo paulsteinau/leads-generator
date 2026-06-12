@@ -175,6 +175,7 @@ export async function rejectLead(leadId: number): Promise<{ ok: boolean }> {
 export async function createManualLead(data: {
   name: string; website?: string; category?: string; district?: string;
   phone?: string; email?: string; lead_tier?: string; notes?: string;
+  project_type?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
   const res = await fetch(`${API}/leads/manual`, {
     method: "POST",

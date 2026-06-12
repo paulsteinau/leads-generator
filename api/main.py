@@ -284,10 +284,10 @@ def create_manual_lead(body: ManualLeadRequest):
     score = {"hot": 80, "warm": 55, "low": 30}.get(body.lead_tier, 55)
     conn.execute(
         "INSERT INTO leads (url_hash,name,category,district,phone,email,website,"
-        "lead_score,lead_tier,stage,status,notes) VALUES (?,?,?,?,?,?,?,?,?,'scored','new',?)",
+        "lead_score,lead_tier,stage,status,notes,project_type) VALUES (?,?,?,?,?,?,?,?,?,'scored','new',?,?)",
         (url_hash(key), body.name, body.category, body.district,
          body.phone, body.email, site or None,
-         score, body.lead_tier, body.notes),
+         score, body.lead_tier, body.notes, body.project_type),
     )
     conn.commit()
     lead_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
