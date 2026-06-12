@@ -16,7 +16,7 @@ from api.models import (
     ApproveEmailRequest, UpdateStatusRequest, UpdateEmailRequest,
     PendingReviewLead, RegenerateRequest, EditDemoRequest,
     ResendWebhookPayload, UnsubscribeRequest, ManualLeadRequest,
-    SaveReviewRequest, UpdateNotesRequest,
+    SaveReviewRequest, UpdateNotesRequest, UpdateDemoSourceRequest,
 )
 
 app = FastAPI(title="Berlin Lead-Gen API")
@@ -565,6 +565,58 @@ def edit_demo(lead_id: int, body: EditDemoRequest):
     )
     conn.commit()
     return {"ok": True}
+
+
+# ── Demo Source (read / update + redeploy) ───────────────────────────────────
+
+@app.get("/leads/{lead_id}/demo-source")
+def get_demo_source(lead_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT demo_jsx FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    if not row["demo_jsx"]:
+        raise HTTPException(404, "No demo source stored for this lead — regenerate the demo first")
+    return {"jsx": row["demo_jsx"]}
+
+
+@app.put("/leads/{lead_id}/demo-source")
+def update_demo_source(lead_id: int, body: UpdateDemoSourceRequest):
+    """Save updated JSX to DB + redeploy to Vercel."""
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+
+    lead = dict(row)
+    from pipeline.generator.demo import _make_slug, _setup_demo_dir, _deploy_via_vercel_api  # noqa: PLC0415
+
+    slug = _make_slug(lead)
+    ROOT_PATH = Path(__file__).parent.parent
+    demo_dir = ROOT_PATH / "data" / "demos" / slug
+
+    _setup_demo_dir(demo_dir)
+    (demo_dir / "src" / "App.jsx").write_text(body.jsx, encoding="utf-8")
+
+    conn.execute("UPDATE leads SET demo_jsx=? WHERE id=?", (body.jsx, lead_id))
+    conn.commit()
+
+    demo_url = _deploy_via_vercel_api(demo_dir, slug, conn, lead_id)
+    if demo_url:
+        conn.execute(
+            "UPDATE leads SET demo_url=?, demo_generated_at=datetime('now'),"
+            " updated_at=datetime('now') WHERE id=?",
+            (demo_url, lead_id),
+        )
+        conn.commit()
+        conn.execute(
+            "INSERT INTO admin_actions (lead_id, action, payload) VALUES (?,?,?)",
+            (lead_id, "demo_source_updated", f"redeployed to {demo_url}"),
+        )
+        conn.commit()
+        return {"ok": True, "demo_url": demo_url}
+
+    raise HTTPException(500, "Vercel deploy failed — check Railway logs")
 
 
 # ── Demo Generation ───────────────────────────────────────────────────────────

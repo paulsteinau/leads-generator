@@ -125,3 +125,7 @@ class SaveReviewRequest(BaseModel):
 
 class UpdateNotesRequest(BaseModel):
     notes: Optional[str] = None
+
+
+class UpdateDemoSourceRequest(BaseModel):
+    jsx: str

@@ -1943,6 +1943,10 @@ def generate_demo(lead: dict, conn) -> str | None:
     _setup_demo_dir(demo_dir)
     (demo_dir / "src" / "App.jsx").write_text(app_jsx, encoding="utf-8")
 
+    # Save JSX to DB so it can be retrieved/edited without Railway filesystem access
+    conn.execute("UPDATE leads SET demo_jsx=? WHERE id=?", (app_jsx, lead_id))
+    conn.commit()
+
     # Stage 10+11: Deploy source to Vercel (Vercel builds in their cloud)
     demo_url = _deploy_via_vercel_api(demo_dir, slug, conn, lead_id)
 

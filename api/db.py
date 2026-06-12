@@ -114,6 +114,8 @@ def _apply_migrations(conn) -> None:
         "ALTER TABLE cost_log ADD COLUMN cache_read_tokens INTEGER DEFAULT 0",
         "ALTER TABLE cost_log ADD COLUMN cache_write_tokens INTEGER DEFAULT 0",
         "ALTER TABLE cost_log ADD COLUMN generation_num INTEGER DEFAULT 1",
+        # demo source stored in DB so it can be retrieved/edited without Railway filesystem
+        "ALTER TABLE leads ADD COLUMN demo_jsx TEXT",
     ]
     for sql in migrations:
         try:
