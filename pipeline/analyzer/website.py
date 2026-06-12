@@ -14,7 +14,9 @@ async def _fetch(client: httpx.AsyncClient, url: str, strategy: str) -> int | No
                         "key": os.environ.get("GOOGLE_API_KEY", "")},
             )
             if r.status_code == 429:
-                await asyncio.sleep(30 * (attempt + 1))
+                return None  # rate-limited — skip gracefully, no retry
+            if r.status_code != 200:
+                await asyncio.sleep(5 * (attempt + 1))
                 continue
             score = (r.json()
                      .get("lighthouseResult", {})
