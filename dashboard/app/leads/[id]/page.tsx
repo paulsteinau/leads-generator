@@ -4,6 +4,7 @@ import ReviewPanel from "./ReviewPanel";
 import ScreenshotTabs from "./ScreenshotTabs";
 import Link from "next/link";
 import GenerateDemoButton from "./GenerateDemoButton";
+import SourcePanel from "./SourcePanel";
 import DashboardShell from "../../components/DashboardShell";
 
 const TIER_COLORS: Record<string, { bg: string; text: string; ring: string }> = {
@@ -269,6 +270,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             initialStage={lead.stage ?? ""}
             initialDemoUrl={lead.demo_url ?? null}
           />
+          {lead.demo_url && <SourcePanel leadId={lead.id} />}
           {lead.stage === "ready_for_review" && <ReviewPanel lead={lead} />}
           <EmailPanel lead={lead} />
 
