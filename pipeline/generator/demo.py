@@ -496,8 +496,8 @@ _CATEGORY_STYLE_PROFILES: dict[str, dict] = {
     "Unternehmensberater":{"k": 5,"richness": "balanced",   "image_mood": "strategy sessions, whiteboards, city skyline, modern office — energetic but credible", "section_emphasis": "Hero + Leistungen + Stats/Zahlen"},
     # ── Architekt — editorial but with strong portfolio emphasis ──────────────
     "Architekt":         {"k": 5, "richness": "showcase",   "image_mood": "architectural photography, building details, clean geometry, construction materials — dramatic angles", "section_emphasis": "Hero (full-bleed project photo), Projekte gallery (largest section), Über uns"},
-    # ── Real estate — lifestyle + architectural ───────────────────────────────
-    "Immobilienmakler":  {"k": 5, "richness": "showcase",   "image_mood": "beautiful interiors, city skylines, architectural exteriors, natural light — aspirational but real", "section_emphasis": "Hero (property photo), Angebote gallery, Kontakt"},
+    # ── Real estate — image-first, interactive property gallery mandatory ────
+    "Immobilienmakler":  {"k": 6, "richness": "showcase",   "image_mood": "beautiful property interiors, wide-angle living rooms, kitchen close-ups, architectural exteriors, city skylines, natural light flooding rooms — every section uses large property images, NEVER generic business stock", "section_emphasis": "Hero (full-bleed property photo MANDATORY), Angebote gallery (LARGEST section — interactive image grid or carousel showing multiple properties with photos), Leistungen, Über uns (team photo), Kontakt — images dominate text in every section"},
     # ── Medical — clean clinical, calm visuals ────────────────────────────────
     "Arzt":              {"k": 4, "richness": "balanced",   "image_mood": "calm clinic interiors, soft light, medical equipment close-ups — NO cheesy stock doctors", "section_emphasis": "Hero (calm, reassuring), Leistungen, Über uns (doctor portrait only if real photo available)"},
     "Kinderarzt":        {"k": 4, "richness": "balanced",   "image_mood": "bright warm clinic, soft toys, natural light, friendly space — warm not clinical", "section_emphasis": "Hero (warm and welcoming), Leistungen"},
@@ -762,6 +762,23 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         "expressive":  "Full creative expression — atmospheric, immersive, rich. 6 animations. Bold imagery. Every section should feel alive.",
     }
     richness_note = richness_map.get(profile["richness"], richness_map["balanced"])
+
+    # Category-specific mandatory overrides — injected verbatim into the brief
+    _CATEGORY_MANDATORY: dict[str, str] = {
+        "Immobilienmakler": (
+            "\n## IMMOBILIEN — PFLICHTANFORDERUNGEN (non-negotiable)\n"
+            "This is a PROPERTY BUSINESS. Buyers/renters come to see homes — images ARE the product.\n"
+            "MANDATORY in the generated website:\n"
+            "1. EVERY section contains at least one large property image (interior or exterior)\n"
+            "2. Angebote/Listings section: interactive image gallery or card carousel — each property card has a photo, price, size (m²), rooms\n"
+            "3. Hero: full-bleed property photo background (interior or exterior), text overlay\n"
+            "4. Use Picsum seeds that suggest real estate: 'apartment', 'interior', 'livingroom', 'realestate', 'architecture', 'exterior'\n"
+            "5. Visual ratio: 60% image, 40% text across all sections\n"
+            "6. NO generic office/business stock photos\n"
+        ),
+    }
+    category_mandatory = _CATEGORY_MANDATORY.get(category, "")
+
     profile_block = (
         f"\n## CATEGORY VISUAL PROFILE ({category})\n"
         f"- Visual richness: {profile['richness'].upper()} — {richness_note}\n"
@@ -800,6 +817,7 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"{mode_hint}\n"
         f"{serif_hint}\n"
         f"{formal_block}"
+        f"{category_mandatory}"
         f"{profile_block}"
         f"{palette_block}"
         f"{brand_colors_block}"
