@@ -27,7 +27,7 @@ async def _fetch(client: httpx.AsyncClient, url: str, strategy: str) -> int | No
     return None
 
 
-async def analyze_pagespeed_batch(urls: list[str], max_concurrent: int = 2) -> dict[str, dict]:
+async def analyze_pagespeed_batch(urls: list[str], max_concurrent: int = 1) -> dict[str, dict]:
     results: dict[str, dict] = {}
     sem = asyncio.Semaphore(max_concurrent)
 
@@ -35,9 +35,9 @@ async def analyze_pagespeed_batch(urls: list[str], max_concurrent: int = 2) -> d
         async with sem:
             async with httpx.AsyncClient() as client:
                 mobile = await _fetch(client, url, "mobile")
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
                 desktop = await _fetch(client, url, "desktop")
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
         flags = []
         if mobile is None:
             flags.append("pagespeed_unavailable")
