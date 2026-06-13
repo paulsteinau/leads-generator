@@ -2,11 +2,18 @@
 import { useEffect, useRef, useState } from "react";
 import { getPipelineStatus, startPipeline, stopPipeline, getLogs } from "@/lib/api";
 
+const DISTRICTS = [
+  "Mitte", "Prenzlauer Berg", "Kreuzberg", "Charlottenburg",
+  "Friedrichshain", "Neukölln", "Steglitz-Zehlendorf", "Tempelhof",
+  "Pankow", "Lichtenberg",
+];
+
 export default function PipelinePanel() {
   const [running, setRunning] = useState(false);
   const [pid, setPid] = useState<number | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
+  const [district, setDistrict] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => {
@@ -27,7 +34,7 @@ export default function PipelinePanel() {
   }, [open]);
 
   const run = async (dry: boolean) => {
-    const r = await startPipeline(dry);
+    const r = await startPipeline(dry, district || undefined);
     if (r.ok) { setRunning(true); setPid(r.pid ?? null); setOpen(true); }
     else alert(r.error ?? "Fehler");
   };
@@ -43,7 +50,16 @@ export default function PipelinePanel() {
         <span className="text-sm font-semibold text-gray-700">Pipeline</span>
         <span className={`w-2 h-2 rounded-full ${running ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
         <span className="text-xs text-gray-400">{running ? `PID ${pid}` : "Gestoppt"}</span>
-        <div className="flex gap-2 ml-auto">
+        <div className="flex gap-2 ml-auto items-center">
+          <select
+            value={district}
+            onChange={(e) => setDistrict(e.target.value)}
+            disabled={running}
+            className="px-2 py-1.5 text-xs border rounded bg-white text-gray-700 disabled:opacity-40"
+          >
+            <option value="">Bezirk: Automatisch</option>
+            {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
           <button
             onClick={() => run(false)}
             disabled={running}

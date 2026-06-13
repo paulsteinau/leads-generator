@@ -80,13 +80,15 @@ def startup():
 # ── Pipeline control ──────────────────────────────────────────────────────────
 
 @app.post("/pipeline/start")
-def pipeline_start(dry_run: bool = False):
+def pipeline_start(dry_run: bool = False, district: str | None = None):
     global _pipeline_proc
     if _pipeline_proc and _pipeline_proc.poll() is None:
         return {"ok": False, "error": "Already running", "pid": _pipeline_proc.pid}
     cmd = [sys.executable, str(ROOT / "pipeline" / "run.py")]
     if dry_run:
         cmd.append("--dry-run")
+    if district:
+        cmd.extend(["--district", district])
     _pipeline_proc = subprocess.Popen(
         cmd,
         cwd=str(ROOT),

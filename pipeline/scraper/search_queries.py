@@ -20,6 +20,10 @@ def all_queries() -> list[dict]:
     ]
 
 
+def get_targeted_queries(district: str) -> list[dict]:
+    return [{"query": f"{cat} Berlin {district}", "category": cat, "district": district} for cat in CATEGORIES]
+
+
 def get_daily_queries(conn, n: int = 22) -> list[dict]:
     recent = {r["query"] for r in conn.execute(
         "SELECT query FROM search_runs WHERE ran_at > datetime('now', '-3 days')"

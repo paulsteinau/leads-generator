@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from api.db import init_db
-from pipeline.scraper.search_queries import get_daily_queries
+from pipeline.scraper.search_queries import get_daily_queries, get_targeted_queries
 from pipeline.scraper.deduplicator import url_hash, is_duplicate
 from pipeline.scraper.google_maps import scrape_google_maps
 from pipeline.analyzer.seo import analyze_seo
@@ -30,12 +30,12 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-def run(dry_run: bool = False):
+def run(dry_run: bool = False, district: str | None = None):
     conn = init_db()
     c = {"new": 0, "hot": 0, "warm": 0, "low": 0, "uncontactable": 0, "skipped": 0}
 
     # Stage 1: Scrape
-    queries = get_daily_queries(conn, n=22)
+    queries = get_targeted_queries(district) if district else get_daily_queries(conn, n=22)
     log.info(f"Stage 1: {len(queries)} queries")
     raw: list[dict] = []
 
@@ -164,4 +164,6 @@ def run(dry_run: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
-    run(dry_run=parser.parse_args().dry_run)
+    parser.add_argument("--district", type=str, default=None)
+    args = parser.parse_args()
+    run(dry_run=args.dry_run, district=args.district)
