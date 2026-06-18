@@ -253,16 +253,21 @@ def list_leads(
     district: str | None = None,
     category: str | None = None,
     stage: str | None = None,
+    status: str | None = None,
+    date: str | None = None,
 ) -> list[LeadSummary]:
     conn = get_conn()
     q = "SELECT * FROM leads WHERE 1=1"
     p: list = []
     for col, val in [("lead_tier", tier), ("district", district),
-                     ("category", category), ("stage", stage)]:
+                     ("category", category), ("stage", stage), ("status", status)]:
         if val:
             q += f" AND {col}=?"
             p.append(val)
-    q += " ORDER BY lead_score DESC"
+    if date:
+        q += " AND DATE(created_at)=?"
+        p.append(date)
+    q += " ORDER BY created_at DESC, lead_score DESC"
     cutoff = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     return [
         LeadSummary(
@@ -275,6 +280,25 @@ def list_leads(
         )
         for r in conn.execute(q, p).fetchall()
     ]
+
+
+@app.get("/leads/filter-options")
+def lead_filter_options():
+    conn = get_conn()
+    def distinct(col: str, table: str = "leads", extra: str = "") -> list[str]:
+        rows = conn.execute(
+            f"SELECT DISTINCT {col} FROM {table} WHERE {col} IS NOT NULL{extra} ORDER BY {col}"
+        ).fetchall()
+        return [r[0] for r in rows]
+    return {
+        "categories": distinct("category"),
+        "districts":  distinct("district"),
+        "stages":     distinct("stage"),
+        "statuses":   distinct("status"),
+        "dates":      [r[0] for r in conn.execute(
+            "SELECT DISTINCT DATE(created_at) FROM leads WHERE created_at IS NOT NULL ORDER BY created_at DESC"
+        ).fetchall()],
+    }
 
 
 @app.post("/leads/manual")
@@ -336,6 +360,18 @@ def list_pending_review():
         for r in rows
     ]
     return {"count": len(leads), "leads": leads}
+
+
+@app.delete("/leads/{lead_id}")
+def delete_lead(lead_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT id FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Lead not found")
+    conn.execute("DELETE FROM cost_log WHERE lead_id=?", (lead_id,))
+    conn.execute("DELETE FROM leads WHERE id=?", (lead_id,))
+    conn.commit()
+    return {"ok": True}
 
 
 @app.get("/leads/{lead_id}", response_model=LeadDetail)

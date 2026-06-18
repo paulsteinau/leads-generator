@@ -215,6 +215,24 @@ export async function resetDemo(leadId: number): Promise<{ ok: boolean }> {
   return res.json();
 }
 
+export interface LeadFilterOptions {
+  categories: string[];
+  districts: string[];
+  stages: string[];
+  statuses: string[];
+  dates: string[];
+}
+
+export async function getLeadFilterOptions(): Promise<LeadFilterOptions> {
+  const res = await fetch(`${API}/leads/filter-options`, { cache: "no-store", headers: authHeaders() });
+  return res.json();
+}
+
+export async function deleteLead(leadId: number): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/leads/${leadId}`, { method: "DELETE", headers: authHeaders() });
+  return res.json();
+}
+
 export interface LeadCostStage {
   stage: string | null;
   model: string | null;

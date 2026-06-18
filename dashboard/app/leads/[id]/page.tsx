@@ -5,6 +5,7 @@ import ScreenshotTabs from "./ScreenshotTabs";
 import Link from "next/link";
 import GenerateDemoButton from "./GenerateDemoButton";
 import SourcePanel from "./SourcePanel";
+import DeleteLeadButton from "./DeleteLeadButton";
 import DashboardShell from "../../components/DashboardShell";
 
 const TIER_COLORS: Record<string, { bg: string; text: string; ring: string }> = {
@@ -98,9 +99,12 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           )}
         </div>
 
-        <span className="ml-auto text-[11px] text-gray-300 bg-gray-50 px-2.5 py-1 rounded-lg">
-          {lead.stage}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[11px] text-gray-300 bg-gray-50 px-2.5 py-1 rounded-lg">
+            {lead.stage}
+          </span>
+          <DeleteLeadButton leadId={lead.id} />
+        </div>
       </div>
 
       {/* 3-column grid */}
