@@ -377,7 +377,9 @@ _DARK_MODE_CATEGORIES = {"Bar", "Restaurant", "Club", "DJ", "Fotograf", "Tattoo"
 # playful: energy, bounce OK (Bar, Club, Tattoo, DJ, Fotograf, Barbier, Florist)
 # neutral: anything else — full pool
 _FORMAL_CATEGORIES = {"Anwalt", "Rechtsanwalt", "Notar", "Arzt", "Steuerberater", "Architekt",
-                      "Immobilienmakler", "Unternehmensberater", "Wirtschaftsprüfer", "Notariat"}
+                      "Immobilienmakler", "Unternehmensberater", "Wirtschaftsprüfer", "Notariat",
+                      # Medical — professional, calm, trust-building; no playful animations
+                      "Zahnarzt", "Kinderarzt", "Physiotherapeut", "Apotheke", "Hebamme", "Optiker"}
 _PLAYFUL_CATEGORIES = {"Bar", "Club", "DJ", "Tattoo", "Fotograf", "Barbier",
                        "Florist", "Eventplaner", "Partyservice"}
 
@@ -428,10 +430,21 @@ _PALETTES_MEDICAL = [
     {"name": "Pearl Clinic",     "bg": "#f9f8f6", "surface": "#ffffff", "text": "#161410", "accent": "#5a6e80", "shadow": "#e0dcd4"},
     {"name": "Soft Teal Health", "bg": "#f4f9f8", "surface": "#ffffff", "text": "#0f1e1c", "accent": "#3a7870", "shadow": "#d4e8e4"},
     {"name": "Blush Wellness",   "bg": "#fdf6f5", "surface": "#ffffff", "text": "#1e1614", "accent": "#8a5a60", "shadow": "#e8d8d4"},
-    # Dark — premium specialist
+    # Dark — premium specialist (physio, optiker — NOT for dental/family medicine)
     {"name": "Deep Medical",     "bg": "#0a1520", "surface": "#0f2030", "text": "#e8f0f8", "accent": "#4ab8c8", "shadow": "#050c14"},
     {"name": "Midnight Teal",    "bg": "#081410", "surface": "#0e2018", "text": "#e4f0ec", "accent": "#50b890", "shadow": "#040a08"},
     {"name": "Dark Slate Health","bg": "#0c1018", "surface": "#131b28", "text": "#dce8f0", "accent": "#608898", "shadow": "#060810"},
+]
+
+# Dental-specific palettes — LIGHT ONLY. Zahnarzt must never get dark/navy.
+# Warm whites, soft teals, sage greens, blush — never cold dark blue.
+_PALETTES_DENTAL = [
+    {"name": "Pearl Smile",      "bg": "#ffffff",  "surface": "#f7fbfd", "text": "#0f1c28", "accent": "#3a8a9a", "shadow": "#cce4ec"},
+    {"name": "Warm Dental",      "bg": "#fdfaf5",  "surface": "#ffffff", "text": "#1c1812", "accent": "#4e7a6a", "shadow": "#dde8e4"},
+    {"name": "Soft Mint",        "bg": "#f4f8f6",  "surface": "#ffffff", "text": "#121c18", "accent": "#3a7860", "shadow": "#cce0d8"},
+    {"name": "Cloud Clinic",     "bg": "#f8f9fb",  "surface": "#ffffff", "text": "#141c24", "accent": "#5a7890", "shadow": "#d4dce8"},
+    {"name": "Ivory Practice",   "bg": "#fdf9f4",  "surface": "#ffffff", "text": "#1a1610", "accent": "#8a7060", "shadow": "#e8ddd4"},
+    {"name": "Blush Clinical",   "bg": "#fdf6f5",  "surface": "#ffffff", "text": "#1c1614", "accent": "#8a5a6a", "shadow": "#ecdce0"},
 ]
 
 _PALETTES_LIGHT_TRADE = [
@@ -464,8 +477,8 @@ _CATEGORY_TO_PALETTE_BUCKET = {
     "Unternehmensberater": _PALETTES_FORMAL, "Immobilienmakler": _PALETTES_FORMAL,
     "Architekt": _PALETTES_FORMAL,
     # medical
-    "Arzt": _PALETTES_MEDICAL, "Kinderarzt": _PALETTES_MEDICAL,
-    "Zahnarzt": _PALETTES_MEDICAL, "Physiotherapeut": _PALETTES_MEDICAL,
+    "Arzt": _PALETTES_MEDICAL, "Kinderarzt": _PALETTES_DENTAL,
+    "Zahnarzt": _PALETTES_DENTAL, "Physiotherapeut": _PALETTES_MEDICAL,
     "Apotheke": _PALETTES_MEDICAL, "Hebamme": _PALETTES_MEDICAL,
     "Optiker": _PALETTES_MEDICAL,
     # light trade
@@ -628,7 +641,14 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
 
     # Business-type hints
     category = lead.get("category", "")
-    if category in _LIGHT_MODE_CATEGORIES:
+    if category in {"Zahnarzt", "Kinderarzt"}:
+        mode_hint = (
+            f"Mode: LIGHT BACKGROUND MANDATORY for {category}. "
+            f"Use white (#ffffff), off-white (#fdfaf5), or very light grey/mint (#f4f8f6). "
+            f"NEVER dark backgrounds, NEVER navy, NEVER dark blue — patients associate dark dental sites with fear. "
+            f"Accent must be soft teal, sage green, or warm grey — NEVER cold dark blue or AI-purple."
+        )
+    elif category in _LIGHT_MODE_CATEGORIES:
         mode_hint = f"Mode hint: {category} businesses read as clean and trustworthy — light background (white, off-white, or very light grey) is strongly preferred over dark OLED."
     elif category in _DARK_MODE_CATEGORIES:
         mode_hint = f"Mode hint: {category} businesses suit a dark, atmospheric background (zinc-950, #0a0a0a, deep navy). Dark mode preferred."
@@ -1233,6 +1253,42 @@ Content for generated pages: derive from business name, category, and all scrape
     # Extract mandatory values from brief so they appear at top of prompt
     brief_mandatory = _extract_brief_mandatory(design_brief)
 
+    # Category-specific required section overrides (replaces generic 7-section list in system prompt)
+    _CATEGORY_SECTION_OVERRIDES: dict[str, str] = {
+        "Immobilienmakler": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — IMMOBILIEN (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "This is a property business. Images ARE the product. Every section must be image-dominant.\n\n"
+            "1. Nav: floating pill — business name + phone (right) + CTA 'Kostenlose Bewertung'\n"
+            "2. Hero: min-h-[100dvh] full-bleed property photo (large interior or exterior). Headline + 2 CTAs: 'Aktuelle Objekte' (anchor to section 3) + 'Kostenlose Wertermittlung'\n"
+            "3. Aktuelle Angebote — LARGEST SECTION (mandatory, prominent): property listing cards in a grid or masonry layout. "
+            "   Each card: large photo (16:9 aspect), price in €, size in m², room count, district/location badge. Min 4 mock properties with realistic Berlin prices (€380k–€1.2M Kauf, €1.200–€3.800/Monat Miete). Interactive hover states on cards.\n"
+            "4. Leistungen: Verkauf / Vermietung / Immobilienbewertung — clean asymmetric layout, image per service\n"
+            "5. Über uns / Team: agent photo, years experience, number of transactions as animated stat\n"
+            "6. Bewertungen: seller + buyer testimonials with star ratings\n"
+            "7. Kontakt: phone + email + address + contact form. CTA: 'Jetzt kostenlose Immobilienbewertung anfragen'\n"
+            "8. Footer\n\n"
+            "PICSUM SEEDS for property images: 'apartment', 'interior', 'livingroom', 'modernkitchen', 'architecture', 'realestate', 'facade'\n"
+        ),
+        "Zahnarzt": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — ZAHNARZT (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "Clean, light, premium dental practice. Light background MANDATORY — white/off-white ONLY.\n\n"
+            "1. Nav: floating pill — practice name + phone + CTA 'Termin vereinbaren'\n"
+            "2. Hero: min-h-[100dvh], light background with large hero image (modern dental equipment or bright clinic interior — NOT a stock dentist holding tools). Calm headline + Google rating badge + CTA 'Termin online buchen'\n"
+            "3. Leistungen: dental services as bento or zigzag — each with a clean dental/medical image. Min 4 services.\n"
+            "4. Behandlungsablauf / Praxis: practice interior photos, modern equipment, welcoming atmosphere. Text about the clinic philosophy.\n"
+            "5. Bewertungen: patient testimonials with star ratings (highly trust-critical for dental)\n"
+            "6. Team / Über uns: doctor/team photo, credentials, years of experience\n"
+            "7. Kontakt: address + phone + online booking CTA + opening hours\n"
+            "8. Footer\n\n"
+            "PICSUM SEEDS: 'dental', 'clinic', 'medical-equipment', 'white-interior', 'modern-clinic', 'healthcare'\n"
+        ),
+    }
+    category_section_override = _CATEGORY_SECTION_OVERRIDES.get(lead.get("category", ""), "")
+
     return f"""
 Generate a complete single-file React App.jsx for this German business demo website.
 
@@ -1342,6 +1398,8 @@ FAQPage schema: wrap all FAQ question/answer pairs as Question + Answer entities
 - "Über uns": structured paragraph covering who / what / where / since when
 - Contact section: NAP (Name, Adresse, Telefon) consistent with business info
 - No filler text — every sentence must be scannable and informative
+
+{category_section_override}
 
 ## Output Rules
 - Output ONLY valid JSX starting with import statements
