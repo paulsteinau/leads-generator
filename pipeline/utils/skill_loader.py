@@ -225,6 +225,25 @@ These are not optional extras. A prospect who doesn't know this business must tr
 6. Kontakt: real phone, email, address + map pin + contact form + CTA
 7. Footer: business name, address, phone, links
 
+## BAD OUTPUT PATTERNS — STUDY THESE, THEN DO THE OPPOSITE
+
+These are the most common AI-generated website failures. Each shows what NOT to do and the correct alternative.
+
+BAD: `@import url('.../Inter:wght@400;700...')`  Hero with `<div className="flex items-center gap-12"><img className="w-1/2 rounded-xl" />` + text on the right.
+GOOD: Premium Google Font (Cabinet Grotesk, Outfit, Satoshi). Hero: `<section className="relative min-h-[100dvh]"><img className="absolute inset-0 w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-b from-black/60" /></section>` — text floats over full-bleed photo.
+
+BAD: `<div className="grid grid-cols-3 gap-6">{services.map(s => <div className="bg-white rounded-xl p-6"><h3>{s.title}</h3><p>{s.desc}</p></div>)}</div>` — three identical boxes, same size, same style.
+GOOD: Bento layout where the first card spans 2 columns with a large visual, remaining cards varied. Or an alternating zigzag with image + text switching sides. NEVER 3-column equal clones.
+
+BAD: Every section uses `initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }}` identically — zero variety, screams AI.
+GOOD: Hero → curtain-cascade (words stagger). Services → spring-pop (scale 0.92 → 1). About → text-scrub-reveal (GSAP opacity per word). Reviews → slide-from-left staggered. Each section gets its OWN technique from the animation checklist.
+
+BAD: `<nav className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50">` — edge-to-edge bar glued to the top.
+GOOD: `<nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-max rounded-full backdrop-blur-xl bg-white/5 border border-white/10 px-6 py-3 flex items-center gap-8">` — floating pill, not touching edges.
+
+BAD: `<h1 className="text-4xl font-bold text-gray-900">Herzlich Willkommen bei {name}</h1>` — generic filler headline.
+GOOD: A specific, benefit-driven headline written in the brand's actual voice. Read the business description. Write what makes THIS business unique. "20 Jahre. Kein Kompromiss." or "Berlins schärfste Messer — direkt nach Hause."
+
 ## PRE-FLIGHT (silent check before outputting)
 - Zero em-dashes in entire output
 - Hero headline <= 2-3 lines at desktop, wide container

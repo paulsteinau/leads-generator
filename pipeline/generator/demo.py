@@ -1670,6 +1670,112 @@ def _fix_phosphor_imports(app_jsx: str) -> str:
     return result
 
 
+def _design_qa_fix(
+    app_jsx: str,
+    design_brief: str,
+    design_system: str,
+    conn,
+    lead_id: int,
+    generation_num: int = 1,
+) -> str:
+    """
+    Python-based design quality checks + targeted Sonnet fix if violations found.
+    Checks creative/visual rules that _post_process_jsx only warns about.
+    Only fires a fix call when high-confidence violations are detected.
+    """
+    violations: list[str] = []
+
+    # 1. Banned font imported — check @import lines specifically
+    import_lines = [l for l in app_jsx.split("\n") if "@import" in l]
+    import_block = "\n".join(import_lines)
+    for banned in ["Inter", "Roboto", "Arial", "Open Sans"]:
+        if banned in import_block:
+            violations.append(
+                f"FONT: '{banned}' is imported — replace with a premium Google Font from the design brief "
+                f"(Cabinet Grotesk, Outfit, Satoshi, Plus Jakarta Sans, DM Sans, etc). "
+                f"Never use generic system fonts as primary typeface."
+            )
+
+    # 2. No Google Fonts import at all
+    if not any("fonts.googleapis.com" in l or "@import url" in l for l in import_lines):
+        violations.append(
+            "FONT: No Google Fonts @import found anywhere. Must import 2 fonts via @import in a <style> tag "
+            "at the top of the component. Example: @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap')"
+        )
+
+    # 3. Brief hex colors absent from generated code
+    brief_hexes = re.findall(r'#([0-9a-fA-F]{6})\b', design_brief)
+    if brief_hexes:
+        unique_hexes = list(dict.fromkeys(h.upper() for h in brief_hexes))
+        missing = [f"#{h}" for h in unique_hexes[:4] if f"#{h}" not in app_jsx.upper()]
+        if len(missing) >= 2:
+            violations.append(
+                f"COLOR: Brief specified these exact hex colors: {', '.join(missing[:3])} — none appear in the code. "
+                f"The design brief colors are mandatory. Do NOT use generic blue/purple. Apply the brief palette to "
+                f"backgrounds, accents, CTA buttons, and highlights."
+            )
+
+    # 4. Animation variety — all sections use identical initial state
+    initial_patterns = re.findall(r'initial=\{\{([^}]+)\}\}', app_jsx)
+    unique_initials = set(p.strip() for p in initial_patterns)
+    if len(initial_patterns) > 4 and len(unique_initials) < 2:
+        violations.append(
+            f"ANIMATION: {len(initial_patterns)} scroll animations all use the same initial state. "
+            "This is the #1 AI-slop signal. Each major section MUST use a different animation technique: "
+            "blur-emerge, slide-from-left, spring-pop, clip-path-wipe, curtain-cascade, scale-reveal, etc. "
+            "Never repeat the same initial={{opacity:0,y:32}} pattern across all sections."
+        )
+
+    # 5. Hero has no full-bleed background image
+    # Check first 5000 chars of the JSX for hero section markers
+    jsx_lower = app_jsx.lower()
+    hero_area_end = max(jsx_lower.find("leistungen"), jsx_lower.find("services"), 4000)
+    hero_area = app_jsx[:hero_area_end]
+    has_cover = "object-cover" in hero_area or "objectfit" in hero_area.lower() or "objectFit" in hero_area
+    has_absolute_inset = ("absolute" in hero_area and ("inset-0" in hero_area or "inset: 0" in hero_area or "inset:0" in hero_area))
+    if not has_cover and not has_absolute_inset:
+        violations.append(
+            "HERO: Hero section appears to be missing a full-bleed background image. "
+            "The hero MUST have a position:absolute inset:0 object-cover background image filling the entire viewport. "
+            "Text overlaid on a dark scrim (gradient or rgba). Never a side-by-side image. "
+            "Use a real lead image if available, otherwise: https://picsum.photos/seed/{descriptive-keyword}/1920/1080"
+        )
+
+    if not violations:
+        print("[demo] Design QA: PASS — no violations found")
+        return app_jsx
+
+    print(f"[demo] Design QA: {len(violations)} violations — running Sonnet fix pass:")
+    for v in violations:
+        print(f"  ⚠ {v[:120]}")
+
+    violations_text = "\n".join(f"- {v}" for v in violations)
+    fix_prompt = (
+        f"The App.jsx below has CRITICAL design quality violations. Fix ONLY these issues — "
+        f"do NOT restructure, rewrite sections, or remove any existing content:\n\n"
+        f"{violations_text}\n\n"
+        f"Output the complete corrected App.jsx. No markdown fences, no explanation, start with import statements.\n\n"
+        f"App.jsx:\n{app_jsx}"
+    )
+
+    fixed = claude_p(
+        prompt=fix_prompt,
+        system=design_system,
+        model="claude-sonnet-4-6",
+        max_tokens=40000,
+        conn=conn,
+        lead_id=lead_id,
+        stage="design_qa_fix",
+        generation_num=generation_num,
+    )
+    fixed = fixed.strip()
+    if fixed.startswith("```"):
+        fixed = re.sub(r'^```[^\n]*\n', '', fixed)
+        fixed = re.sub(r'\n```$', '', fixed)
+    print("[demo] Design QA fix pass complete")
+    return fixed
+
+
 def _validate_and_fix_jsx(app_jsx: str, conn=None, lead_id: int = 0) -> str:
     """
     Quick pre-flight: Python checks first, Haiku only if issues found.
@@ -1931,9 +2037,9 @@ def generate_demo(lead: dict, conn) -> str | None:
         (b64, "image/jpeg") for b64 in ref_screenshots + lead_screenshots if b64
     ]
 
-    # Stage 8: Opus — generate App.jsx
+    # Stage 8: Sonnet — generate App.jsx
     _set_sub_stage(conn, lead_id, "generating_jsx")
-    print(f"[demo] Generating App.jsx with Opus for lead {lead_id} ({len(images)} images)...")
+    print(f"[demo] Generating App.jsx with Sonnet for lead {lead_id} ({len(images)} images)...")
     prompt = _build_codegen_prompt(
         lead=lead,
         content=content,
@@ -1949,7 +2055,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     app_jsx = claude_p(
         prompt=prompt,
         system=design_system,
-        model="claude-opus-4-8",
+        model="claude-sonnet-4-6",
         max_tokens=40000,
         conn=conn,
         lead_id=lead_id,
@@ -1972,9 +2078,20 @@ def generate_demo(lead: dict, conn) -> str | None:
     if approx_out_tokens >= 39000:
         print(f"[demo] WARNING: Fable output ~{approx_out_tokens} tokens — may be truncated even at 40k limit")
 
-    # Stage 8.5: Haiku — JSX pre-flight validation
+    # Stage 8.5: Haiku — JSX pre-flight validation (syntax)
     _set_sub_stage(conn, lead_id, "jsx_validation")
     app_jsx = _validate_and_fix_jsx(app_jsx, conn=conn, lead_id=lead_id)
+
+    # Stage 8.6: Design QA — check creative directives, Sonnet fix if violations found
+    _set_sub_stage(conn, lead_id, "design_qa")
+    app_jsx = _design_qa_fix(
+        app_jsx=app_jsx,
+        design_brief=design_brief,
+        design_system=design_system,
+        conn=conn,
+        lead_id=lead_id,
+        generation_num=generation_num,
+    )
 
     # Stage 9: Set up React project and write App.jsx
     _setup_demo_dir(demo_dir)
