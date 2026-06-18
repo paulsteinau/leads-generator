@@ -96,16 +96,17 @@ def run(dry_run: bool = False, district: str | None = None, skip_scrape: bool = 
 
     if with_site:
         log.info(f"Stage 2: {len(with_site)} websites")
-        urls = [r["website"] for r in with_site]
-        ps_results = asyncio.run(analyze_pagespeed_batch(urls))
-        ux_results = asyncio.run(analyze_ux_batch(urls))
-
-        for lead in tqdm(with_site, desc="Analyzing"):
+        for i, lead in enumerate(with_site):
             url = lead["website"]
-            ps = ps_results.get(url, {})
-            ux = ux_results.get(url, {})
-            seo = analyze_seo(url)
-            social = analyze_social(url)
+            log.info(f"Stage 2 [{i+1}/{len(with_site)}] {lead.get('name')} — {url}")
+            try:
+                ps = asyncio.run(analyze_pagespeed_batch([url])).get(url, {})
+                ux = asyncio.run(analyze_ux_batch([url])).get(url, {})
+                seo = analyze_seo(url)
+                social = analyze_social(url)
+            except Exception as e:
+                log.error(f"Stage 2 error {url}: {e}")
+                ps, ux, seo, social = {}, {}, {}, {}
             flags = list(set(
                 ps.get("red_flags", []) + ux.get("red_flags", []) + seo.get("red_flags", [])
             ))
@@ -124,7 +125,7 @@ def run(dry_run: bool = False, district: str | None = None, skip_scrape: bool = 
                  1 if social.get("has_linkedin") else 0,
                  json.dumps(flags), lead["id"]),
             )
-        conn.commit()
+            conn.commit()
 
     # Stage 3: Extract contacts
     to_extract = [dict(r) for r in conn.execute(
