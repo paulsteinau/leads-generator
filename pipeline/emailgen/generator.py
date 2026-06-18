@@ -14,9 +14,9 @@ SYSTEM = (
     "Abschluss: frage ob man kurz telefonieren kann, 10 Minuten reichen."
 )
 
-# Haiku pricing per token
-INPUT_COST_PER_TOKEN = 0.80 / 1_000_000
-OUTPUT_COST_PER_TOKEN = 4.00 / 1_000_000
+# Sonnet 4.6 pricing per token
+INPUT_COST_PER_TOKEN = 3.00 / 1_000_000
+OUTPUT_COST_PER_TOKEN = 15.00 / 1_000_000
 
 
 def _context(lead: dict) -> str:
@@ -86,7 +86,7 @@ def generate_emails(lead: dict, conn, dry_run: bool = False) -> dict | None:
     def call(instruction: str) -> str:
         nonlocal total_in, total_out
         resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-4-6",
             max_tokens=500,
             system=SYSTEM,
             messages=[{"role": "user", "content":

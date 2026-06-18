@@ -840,8 +840,9 @@ def _build_design_brief_prompt(lead: dict, inspiration: str, ref_css: dict, stru
         f"- Font pairing: heading font (Google Fonts name), body font (Google Fonts name)\n"
         f"- Hero layout: implement the hero paradigm — specific composition description\n"
         f"- Visual mood: exactly 3 adjectives SPECIFIC to this business\n"
-        f"- Confirm animation assignments: list each section + technique in one word\n\n"
-        f"Max 220 words. These values go directly into React/CSS code — be precise."
+        f"- Confirm animation assignments: list each section + technique in one word\n"
+        f"- Section details: for each of the 6 required sections, one sentence on the specific layout (e.g. 'Leistungen: alternating zigzag rows, image left on odd items; Bewertungen: horizontal scrolling marquee of 5-star cards')\n\n"
+        f"Max 400 words. These values go directly into React/CSS code — be precise and specific to this business."
     )
 
 
@@ -2013,8 +2014,8 @@ def generate_demo(lead: dict, conn) -> str | None:
             style_profile=style_profile,
         ),
         system=_BRIEF_SYSTEM_PROMPT,
-        model="claude-sonnet-4-6",
-        max_tokens=700,
+        model="claude-opus-4-8",
+        max_tokens=1200,
         conn=conn,
         lead_id=lead_id,
         stage="design_brief",
