@@ -15,6 +15,35 @@ except Exception:
     async def stealth_async(page): pass
 
 
+async def _detect_bot_wall(page) -> bool:
+    """Return True if the page is a Cloudflare or similar bot-challenge page."""
+    title = (await page.title() or "").lower()
+    cf_title_signals = [
+        "just a moment", "attention required", "one more step",
+        "checking your browser", "please wait", "enable javascript",
+        "access denied", "ray id",
+    ]
+    if any(s in title for s in cf_title_signals):
+        return True
+    try:
+        has_wall = await page.evaluate("""
+            () => !!(
+                document.querySelector('#cf-wrapper') ||
+                document.querySelector('#cf-challenge-form') ||
+                document.querySelector('.cf-error-type') ||
+                document.querySelector('[data-translate="challenge_headline"]') ||
+                document.getElementById('challenge-form') ||
+                document.getElementById('challenge-running') ||
+                document.querySelector('meta[http-equiv="refresh"][content*="cdn-cgi"]')
+            )
+        """)
+        if has_wall:
+            return True
+    except Exception:
+        pass
+    return False
+
+
 async def _dismiss_cookie_banners(page) -> None:
     """Attempt to dismiss common German/EU cookie consent banners."""
     # Known vendor-specific selectors — most reliable, try first
@@ -214,6 +243,12 @@ async def scrape_website_content(url: str) -> dict:
             ctx = await browser.new_context(
                 viewport={"width": 1280, "height": 800},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                locale="de-DE",
+                timezone_id="Europe/Berlin",
+                extra_http_headers={
+                    "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                },
             )
             page = await ctx.new_page()
             await stealth_async(page)
@@ -226,6 +261,18 @@ async def scrape_website_content(url: str) -> dict:
                 if not await page.title():
                     return result
                 # else: we likely have enough content; proceed
+
+            # Cloudflare / bot-wall detection
+            # JS challenges typically auto-resolve within 5-6s with good stealth
+            if await _detect_bot_wall(page):
+                print(f"[scraper] Bot-wall detected for {url} — waiting 7s for auto-resolution...")
+                await asyncio.sleep(7)
+                if await _detect_bot_wall(page):
+                    print(f"[scraper] Still blocked after wait — returning empty for {url}")
+                    result["cloudflare_blocked"] = True
+                    await browser.close()
+                    return result
+                print(f"[scraper] Bot-wall resolved for {url}")
 
             # Dismiss cookie consent banners before extracting anything
             await _dismiss_cookie_banners(page)
