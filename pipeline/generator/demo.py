@@ -1236,6 +1236,25 @@ Content for generated pages: derive from business name, category, and all scrape
 Generate a complete single-file React App.jsx for this German business demo website.
 
 ## ═══════════════════════════════════════════════════════
+## CREATIVE OVERRIDE — THIS IS YOUR PRIMARY DIRECTIVE
+## ═══════════════════════════════════════════════════════
+
+You are operating in maximum creative output mode. This is not a template fill-in job.
+Every layout decision must be deliberate, specific to this business, and visually surprising in a good way.
+
+LAYOUT: Before coding, mentally sketch 3 different hero layouts. Pick the most unexpected one that still converts.
+Asymmetric grids, editorial splits, full-bleed photography with text overlay, large typographic heroes —
+choose based on the business personality, NOT on what's easiest to code.
+
+BRAND VOICE: Read the existing website copy carefully. Extract: Is it formal or informal? Long sentences or short?
+Does it use "Sie" (formal) or "du" (casual)? Is the tone warm, authoritative, minimalist, or energetic?
+Then write ALL generated German copy in that exact voice and vocabulary level.
+Never default to generic business-speak ("Wir bieten Ihnen...") — match what they actually sound like.
+
+DISTINCTIVENESS CHALLENGE: After generating each section, ask yourself: "Could this section appear on any other
+{lead.get('category', 'business')} website?" If yes — redesign it. Every section must be unmistakably THIS business.
+
+## ═══════════════════════════════════════════════════════
 ## DESIGN DIRECTIVES — READ THESE FIRST, IMPLEMENT EXACTLY
 ## ═══════════════════════════════════════════════════════
 
