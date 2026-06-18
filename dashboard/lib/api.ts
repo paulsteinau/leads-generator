@@ -138,8 +138,8 @@ export const updateEmail = (id: number, email: string) =>
 export const getPipelineStatus = (): Promise<PipelineStatus> =>
   fetch(`${API}/pipeline/status`, { cache: "no-store", headers: authHeaders() }).then((r) => r.json());
 
-export const startPipeline = (dryRun = false, district?: string): Promise<{ ok: boolean; pid?: number; error?: string }> => {
-  const params = new URLSearchParams({ dry_run: String(dryRun) });
+export const startPipeline = (dryRun = false, district?: string, skipScrape = false): Promise<{ ok: boolean; pid?: number; error?: string }> => {
+  const params = new URLSearchParams({ dry_run: String(dryRun), skip_scrape: String(skipScrape) });
   if (district) params.set("district", district);
   return fetch(`${API}/pipeline/start?${params}`, { method: "POST", headers: authHeaders() }).then((r) => r.json());
 };

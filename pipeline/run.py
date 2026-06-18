@@ -30,56 +30,57 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-def run(dry_run: bool = False, district: str | None = None):
+def run(dry_run: bool = False, district: str | None = None, skip_scrape: bool = False):
     conn = init_db()
     c = {"new": 0, "hot": 0, "warm": 0, "low": 0, "uncontactable": 0, "skipped": 0}
 
-    # Stage 1: Scrape
-    queries = get_targeted_queries(district) if district else get_daily_queries(conn, n=22)
-    log.info(f"Stage 1: {len(queries)} queries")
-    raw: list[dict] = []
+    if skip_scrape:
+        log.info("Stage 1: skipped")
+    else:
+        queries = get_targeted_queries(district) if district else get_daily_queries(conn, n=22)
+        log.info(f"Stage 1: {len(queries)} queries")
+        raw: list[dict] = []
 
-    for i, q in enumerate(queries):
-        log.info(f"PROGRESS {i+1}/{len(queries)} {q['query']}")
-        try:
-            results = asyncio.run(scrape_google_maps(q["query"], max_results=15))
-            for r in results:
-                r["category"] = q["category"]
-                r["district"] = q["district"]
-            raw.extend(results)
+        for i, q in enumerate(queries):
+            log.info(f"PROGRESS {i+1}/{len(queries)} {q['query']}")
+            try:
+                results = asyncio.run(scrape_google_maps(q["query"], max_results=15))
+                for r in results:
+                    r["category"] = q["category"]
+                    r["district"] = q["district"]
+                raw.extend(results)
+                if not dry_run:
+                    conn.execute(
+                        "INSERT INTO search_runs (query,district,category,results) VALUES (?,?,?,?)",
+                        (q["query"], q["district"], q["category"], len(results)),
+                    )
+                    conn.commit()
+            except Exception as e:
+                log.error(f"Scrape error {q['query']}: {e}")
+
+        for lead in raw:
+            site = lead.get("website") or ""
+            key = site if site else f"nw-{lead.get('name', '')}-{lead.get('address', '')}"
+            if is_duplicate(conn, key):
+                c["skipped"] += 1
+                continue
+            c["new"] += 1
             if not dry_run:
+                h = url_hash(key)
                 conn.execute(
-                    "INSERT INTO search_runs (query,district,category,results) VALUES (?,?,?,?)",
-                    (q["query"], q["district"], q["category"], len(results)),
+                    "INSERT INTO leads "
+                    "(url_hash,name,category,district,address,phone,website,google_rating,google_reviews)"
+                    " VALUES (?,?,?,?,?,?,?,?,?)",
+                    (h, lead.get("name"), lead.get("category"), lead.get("district"),
+                     lead.get("address"), lead.get("phone"), site or None,
+                     lead.get("google_rating"), lead.get("google_reviews")),
                 )
                 conn.commit()
-        except Exception as e:
-            log.error(f"Scrape error {q['query']}: {e}")
 
-    # Deduplicate + insert
-    for lead in raw:
-        site = lead.get("website") or ""
-        key = site if site else f"nw-{lead.get('name', '')}-{lead.get('address', '')}"
-        if is_duplicate(conn, key):
-            c["skipped"] += 1
-            continue
-        c["new"] += 1
-        if not dry_run:
-            h = url_hash(key)
-            conn.execute(
-                "INSERT INTO leads "
-                "(url_hash,name,category,district,address,phone,website,google_rating,google_reviews)"
-                " VALUES (?,?,?,?,?,?,?,?,?)",
-                (h, lead.get("name"), lead.get("category"), lead.get("district"),
-                 lead.get("address"), lead.get("phone"), site or None,
-                 lead.get("google_rating"), lead.get("google_reviews")),
-            )
-            conn.commit()
-
-    log.info(f"New: {c['new']} | Skipped: {c['skipped']}")
-    if dry_run:
-        log.info("DRY RUN done.")
-        return
+        log.info(f"New: {c['new']} | Skipped: {c['skipped']}")
+        if dry_run:
+            log.info("DRY RUN done.")
+            return
 
     # Stage 2: Analyze
     pending = [dict(r) for r in conn.execute("SELECT * FROM leads WHERE stage='scraped'").fetchall()]
@@ -165,5 +166,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--district", type=str, default=None)
+    parser.add_argument("--skip-scrape", action="store_true")
     args = parser.parse_args()
-    run(dry_run=args.dry_run, district=args.district)
+    run(dry_run=args.dry_run, district=args.district, skip_scrape=args.skip_scrape)

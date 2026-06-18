@@ -33,8 +33,8 @@ export default function PipelinePanel() {
     return () => clearInterval(id);
   }, [open]);
 
-  const run = async (dry: boolean) => {
-    const r = await startPipeline(dry, district || undefined);
+  const run = async (dry: boolean, skipScrape = false) => {
+    const r = await startPipeline(dry, district || undefined, skipScrape);
     if (r.ok) { setRunning(true); setPid(r.pid ?? null); setOpen(true); }
     else alert(r.error ?? "Fehler");
   };
@@ -66,6 +66,13 @@ export default function PipelinePanel() {
             className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-40"
           >
             Run Pipeline
+          </button>
+          <button
+            onClick={() => run(false, true)}
+            disabled={running}
+            className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-40"
+          >
+            Analyze Only
           </button>
           <button
             onClick={() => run(true)}

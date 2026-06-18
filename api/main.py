@@ -80,7 +80,7 @@ def startup():
 # ── Pipeline control ──────────────────────────────────────────────────────────
 
 @app.post("/pipeline/start")
-def pipeline_start(dry_run: bool = False, district: str | None = None):
+def pipeline_start(dry_run: bool = False, district: str | None = None, skip_scrape: bool = False):
     global _pipeline_proc
     if _pipeline_proc and _pipeline_proc.poll() is None:
         return {"ok": False, "error": "Already running", "pid": _pipeline_proc.pid}
@@ -89,6 +89,8 @@ def pipeline_start(dry_run: bool = False, district: str | None = None):
         cmd.append("--dry-run")
     if district:
         cmd.extend(["--district", district])
+    if skip_scrape:
+        cmd.append("--skip-scrape")
     _pipeline_proc = subprocess.Popen(
         cmd,
         cwd=str(ROOT),
