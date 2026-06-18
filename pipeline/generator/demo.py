@@ -1208,10 +1208,10 @@ Content for generated pages: derive from business name, category, and all scrape
     if scraped_images or bg_images:
         img_lines = "\n".join(
             f'  src="{i.get("src", "")}" alt="{i.get("alt", "")}"'
-            for i in scraped_images[:6]
+            for i in scraped_images[:12]
             if i.get("src", "").startswith("http")
         )
-        bg_lines = "\n".join(f'  background-image: url("{u}")' for u in bg_images[:3])
+        bg_lines = "\n".join(f'  background-image: url("{u}")' for u in bg_images[:8])
         image_section = (
             "## Real Images from Their Current Website\n"
             "Use these as <img src={...}> props where appropriate:\n"
