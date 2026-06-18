@@ -53,6 +53,8 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
     if subpage_text:
         combined += f"\n\n---SUBPAGES---\n{subpage_text[:4000]}"
 
+    is_real_estate = category in {"Immobilienmakler", "Makler"}
+
     prompt = (
         f"Extract structured information from this German {category} business website text.\n\n"
         f"Return ONLY valid JSON with these fields:\n"
@@ -63,14 +65,20 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
         f"- email: email address string or null\n"
         f"- opening_hours: string description if found, else null\n"
         f"- founding_year: integer year the business was founded/established, or null if not found\n"
-        f"- certifications: list of strings — any professional certifications, memberships, awards, quality seals, or associations mentioned (e.g. 'Mitglied der Rechtsanwaltskammer Berlin', 'TÜV-zertifiziert', 'Meisterbetrieb'). Empty list if none found.\n\n"
-        f"Website text:\n{combined}"
+        f"- certifications: list of strings — any professional certifications, memberships, awards, quality seals, or associations mentioned (e.g. 'Mitglied der Rechtsanwaltskammer Berlin', 'TÜV-zertifiziert', 'Meisterbetrieb'). Empty list if none found.\n"
+        + (
+            f"- properties: list of ALL property listing objects found in the text, each with: "
+            f"{{\"title\": string or null, \"price\": string or null, \"size_sqm\": string or null, \"rooms\": string or null, \"type\": string or null, \"district\": string or null, \"description\": string or null}}. "
+            f"Extract EVERY listing found — do not skip any. Return [] if none found.\n"
+            if is_real_estate else ""
+        )
+        + f"\nWebsite text:\n{combined}"
     )
 
     raw = claude_p(
         prompt=prompt,
         model="claude-sonnet-4-6",
-        max_tokens=1200,
+        max_tokens=2400 if is_real_estate else 1200,
         conn=conn,
         lead_id=lead_id,
         stage="content_extraction",
@@ -1254,6 +1262,29 @@ Content for generated pages: derive from business name, category, and all scrape
     brief_mandatory = _extract_brief_mandatory(design_brief)
 
     # Category-specific required section overrides (replaces generic 7-section list in system prompt)
+
+    # Build Immobilienmakler override dynamically — use real scraped properties if available
+    _real_properties = structured.get("properties") or []
+    if _real_properties:
+        _props_json = json.dumps(_real_properties, ensure_ascii=False, indent=2)
+        _angebote_instruction = (
+            f"   Each card: large photo (16:9 aspect), price in €, size in m², room count, district/location badge. "
+            f"Use the {len(_real_properties)} REAL properties below — display ALL of them. "
+            f"Fill any null fields with realistic Berlin data. Interactive hover states on cards."
+        )
+        _real_props_block = (
+            f"\n## REAL PROPERTY LISTINGS (scraped from this agent's website — use ALL {len(_real_properties)})\n"
+            f"Display every one of these in the Aktuelle Angebote section. Do NOT replace with mock data.\n"
+            f"```json\n{_props_json}\n```\n"
+        )
+    else:
+        _angebote_instruction = (
+            "   Each card: large photo (16:9 aspect), price in €, size in m², room count, district/location badge. "
+            "Min 4 mock properties with realistic Berlin prices (€380k–€1.2M Kauf, €1.200–€3.800/Monat Miete). "
+            "Interactive hover states on cards."
+        )
+        _real_props_block = ""
+
     _CATEGORY_SECTION_OVERRIDES: dict[str, str] = {
         "Immobilienmakler": (
             "\n## ═══════════════════════════════════════════════════════\n"
@@ -1262,14 +1293,15 @@ Content for generated pages: derive from business name, category, and all scrape
             "This is a property business. Images ARE the product. Every section must be image-dominant.\n\n"
             "1. Nav: floating pill — business name + phone (right) + CTA 'Kostenlose Bewertung'\n"
             "2. Hero: min-h-[100dvh] full-bleed property photo (large interior or exterior). Headline + 2 CTAs: 'Aktuelle Objekte' (anchor to section 3) + 'Kostenlose Wertermittlung'\n"
-            "3. Aktuelle Angebote — LARGEST SECTION (mandatory, prominent): property listing cards in a grid or masonry layout. "
-            "   Each card: large photo (16:9 aspect), price in €, size in m², room count, district/location badge. Min 4 mock properties with realistic Berlin prices (€380k–€1.2M Kauf, €1.200–€3.800/Monat Miete). Interactive hover states on cards.\n"
-            "4. Leistungen: Verkauf / Vermietung / Immobilienbewertung — clean asymmetric layout, image per service\n"
+            "3. Aktuelle Angebote — LARGEST SECTION (mandatory, prominent): property listing cards in a grid or masonry layout.\n"
+            + _angebote_instruction + "\n"
+            + "4. Leistungen: Verkauf / Vermietung / Immobilienbewertung — clean asymmetric layout, image per service\n"
             "5. Über uns / Team: agent photo, years experience, number of transactions as animated stat\n"
             "6. Bewertungen: seller + buyer testimonials with star ratings\n"
             "7. Kontakt: phone + email + address + contact form. CTA: 'Jetzt kostenlose Immobilienbewertung anfragen'\n"
             "8. Footer\n\n"
             "PICSUM SEEDS for property images: 'apartment', 'interior', 'livingroom', 'modernkitchen', 'architecture', 'realestate', 'facade'\n"
+            + _real_props_block
         ),
         "Zahnarzt": (
             "\n## ═══════════════════════════════════════════════════════\n"
