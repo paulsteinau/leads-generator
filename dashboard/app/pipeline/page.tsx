@@ -29,9 +29,9 @@ export default function PipelinePage() {
     return () => clearInterval(id);
   }, []);
 
-  const run = async (dry: boolean) => {
+  const run = async (dry: boolean, skipScrape = false) => {
     setError(null);
-    const r = await startPipeline(dry);
+    const r = await startPipeline(dry, undefined, skipScrape);
     if (r.ok) {
       setRunning(true);
       setPid(r.pid ?? null);
@@ -84,6 +84,12 @@ export default function PipelinePage() {
                     className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                   >
                     Dry Run
+                  </button>
+                  <button
+                    onClick={() => run(false, true)}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-colors shadow-sm shadow-emerald-600/20"
+                  >
+                    Nur Analysieren
                   </button>
                   <button
                     onClick={() => run(false)}
