@@ -54,6 +54,49 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
         combined += f"\n\n---SUBPAGES---\n{subpage_text[:4000]}"
 
     is_real_estate = category in {"Immobilienmakler", "Makler"}
+    is_beauty     = category in {"Friseur", "Barbier", "Kosmetik", "Kosmetikstudio", "Nagelstudio", "Massage", "Schönheitsklinik"}
+    is_portfolio  = category in {"Architekt", "Fotograf", "Handwerker", "Maler", "Schreiner"}
+    is_food       = category in {"Restaurant", "Cafe", "Bäckerei", "Bar"}
+
+    if is_real_estate:
+        max_tokens_extraction = 2400
+    elif is_food or is_portfolio:
+        max_tokens_extraction = 2000
+    elif is_beauty:
+        max_tokens_extraction = 1800
+    else:
+        max_tokens_extraction = 1600
+
+    extra_fields = ""
+    if is_real_estate:
+        extra_fields += (
+            "- properties: list of ALL property listing objects found in the text, each with: "
+            "{\"title\": string or null, \"price\": string or null, \"size_sqm\": string or null, \"rooms\": string or null, \"type\": string or null, \"district\": string or null, \"description\": string or null}. "
+            "Extract EVERY listing found — do not skip any. Return [] if none found.\n"
+        )
+    if is_beauty:
+        extra_fields += (
+            "- price_list: list of ALL services with prices found on the site, each: "
+            "{\"service\": string, \"price\": string, \"duration\": string or null}. "
+            "Extract every price entry. Return [] if none found.\n"
+        )
+    if is_portfolio:
+        extra_fields += (
+            "- projects: list of portfolio/project items found, each: "
+            "{\"name\": string, \"type\": string or null, \"year\": string or null, \"location\": string or null, \"description\": string or null}. "
+            "Max 12. Return [] if none found.\n"
+        )
+    if is_food:
+        extra_fields += (
+            "- menu_items: list of menu items/dishes found, each: "
+            "{\"name\": string, \"category\": string or null, \"price\": string or null, \"description\": string or null}. "
+            "Max 20. Return [] if none found.\n"
+        )
+    extra_fields += (
+        "- team: list of named staff/team members found, each: "
+        "{\"name\": string, \"title\": string, \"specialization\": string or null}. "
+        "Max 8. Return [] if none found.\n"
+    )
 
     prompt = (
         f"Extract structured information from this German {category} business website text.\n\n"
@@ -65,20 +108,15 @@ def _extract_structured_content(raw_text: str, subpage_text: str, category: str,
         f"- email: email address string or null\n"
         f"- opening_hours: string description if found, else null\n"
         f"- founding_year: integer year the business was founded/established, or null if not found\n"
-        f"- certifications: list of strings — any professional certifications, memberships, awards, quality seals, or associations mentioned (e.g. 'Mitglied der Rechtsanwaltskammer Berlin', 'TÜV-zertifiziert', 'Meisterbetrieb'). Empty list if none found.\n"
-        + (
-            f"- properties: list of ALL property listing objects found in the text, each with: "
-            f"{{\"title\": string or null, \"price\": string or null, \"size_sqm\": string or null, \"rooms\": string or null, \"type\": string or null, \"district\": string or null, \"description\": string or null}}. "
-            f"Extract EVERY listing found — do not skip any. Return [] if none found.\n"
-            if is_real_estate else ""
-        )
-        + f"\nWebsite text:\n{combined}"
+        f"- certifications: list of strings — professional certifications, memberships, awards, quality seals, associations. Empty list if none found.\n"
+        f"{extra_fields}"
+        f"\nWebsite text:\n{combined}"
     )
 
     raw = claude_p(
         prompt=prompt,
         model="claude-sonnet-4-6",
-        max_tokens=2400 if is_real_estate else 1200,
+        max_tokens=max_tokens_extraction,
         conn=conn,
         lead_id=lead_id,
         stage="content_extraction",
@@ -1261,9 +1299,67 @@ Content for generated pages: derive from business name, category, and all scrape
     # Extract mandatory values from brief so they appear at top of prompt
     brief_mandatory = _extract_brief_mandatory(design_brief)
 
+    # === Structured data blocks for injection into codegen prompt ===
+
+    # Team members
+    _team_list = structured.get("team") or []
+    if _team_list:
+        _team_lines = "\n".join(
+            f"  - {m.get('name', '?')}, {m.get('title', '?')}"
+            + (f" — {m['specialization']}" if m.get("specialization") else "")
+            for m in _team_list
+        )
+        team_data_block = (
+            f"Team (use REAL names — do NOT invent fake team members):\n{_team_lines}"
+        )
+    else:
+        team_data_block = ""
+
+    # Price list (beauty/wellness)
+    _price_list = structured.get("price_list") or []
+    if _price_list:
+        _price_lines = "\n".join(
+            f"  - {p.get('service', '?')}: {p.get('price', '?')}"
+            + (f" ({p['duration']})" if p.get("duration") else "")
+            for p in _price_list
+        )
+        price_data_block = (
+            f"\n## Real Price List (use EXACTLY these — do NOT invent prices):\n{_price_lines}"
+        )
+    else:
+        price_data_block = ""
+
+    # Portfolio / projects (Architekt, Fotograf, Handwerker, etc.)
+    _projects_list = structured.get("projects") or []
+    if _projects_list:
+        _proj_lines = "\n".join(
+            f"  - {p.get('name', '?')}"
+            + (f" ({p['type']})" if p.get("type") else "")
+            + (f", {p['year']}" if p.get("year") else "")
+            + (f", {p['location']}" if p.get("location") else "")
+            + (f": {p['description']}" if p.get("description") else "")
+            for p in _projects_list
+        )
+        projects_data_block = (
+            f"\n## Real Projects / Portfolio ({len(_projects_list)} items — use these names, do NOT invent fake projects):\n{_proj_lines}"
+        )
+    else:
+        projects_data_block = ""
+
+    # Menu items (Restaurant, Cafe, Bar)
+    _menu_items = structured.get("menu_items") or []
+    if _menu_items:
+        _menu_json = json.dumps(_menu_items, ensure_ascii=False, indent=2)
+        menu_data_block = (
+            f"\n## Real Menu Items ({len(_menu_items)} items scraped — use ALL in Speisekarte section):\n"
+            f"```json\n{_menu_json}\n```"
+        )
+    else:
+        menu_data_block = ""
+
     # Category-specific required section overrides (replaces generic 7-section list in system prompt)
 
-    # Build Immobilienmakler override dynamically — use real scraped properties if available
+    # ── Immobilienmakler: use real properties if scraped ─────────────────────
     _real_properties = structured.get("properties") or []
     if _real_properties:
         _props_json = json.dumps(_real_properties, ensure_ascii=False, indent=2)
@@ -1273,8 +1369,7 @@ Content for generated pages: derive from business name, category, and all scrape
             f"Fill any null fields with realistic Berlin data. Interactive hover states on cards."
         )
         _real_props_block = (
-            f"\n## REAL PROPERTY LISTINGS (scraped from this agent's website — use ALL {len(_real_properties)})\n"
-            f"Display every one of these in the Aktuelle Angebote section. Do NOT replace with mock data.\n"
+            f"\n## REAL PROPERTY LISTINGS (scraped — use ALL {len(_real_properties)}, do NOT replace with mock data):\n"
             f"```json\n{_props_json}\n```\n"
         )
     else:
@@ -1285,6 +1380,24 @@ Content for generated pages: derive from business name, category, and all scrape
         )
         _real_props_block = ""
 
+    # ── Anwalt: team-aware, Rechtsgebiete-first ──────────────────────────────
+    _anwalt_team = (
+        f"\n   Real lawyers to feature (use exact names):\n{_team_lines}"
+        if _team_list else
+        "\n   Use realistic German lawyer names (Herr/Frau Dr./LL.M.) if no real team found."
+    )
+
+    # ── Architekt: inject real project names if scraped ──────────────────────
+    _architekt_projects = (
+        f"\n## Real Projects (use these exact names in the Projekte gallery):\n{_proj_lines}"
+        if _projects_list else ""
+    )
+
+    # ── Restaurant: inject real menu if scraped ───────────────────────────────
+    _restaurant_menu = menu_data_block if _menu_items else (
+        "\n## Mock menu: invent 6-8 dishes that fit this restaurant's cuisine style, with realistic Berlin prices (€12–€28 Hauptgerichte)."
+    )
+
     _CATEGORY_SECTION_OVERRIDES: dict[str, str] = {
         "Immobilienmakler": (
             "\n## ═══════════════════════════════════════════════════════\n"
@@ -1292,15 +1405,15 @@ Content for generated pages: derive from business name, category, and all scrape
             "## ═══════════════════════════════════════════════════════\n"
             "This is a property business. Images ARE the product. Every section must be image-dominant.\n\n"
             "1. Nav: floating pill — business name + phone (right) + CTA 'Kostenlose Bewertung'\n"
-            "2. Hero: min-h-[100dvh] full-bleed property photo (large interior or exterior). Headline + 2 CTAs: 'Aktuelle Objekte' (anchor to section 3) + 'Kostenlose Wertermittlung'\n"
-            "3. Aktuelle Angebote — LARGEST SECTION (mandatory, prominent): property listing cards in a grid or masonry layout.\n"
+            "2. Hero: min-h-[100dvh] full-bleed property photo. Headline + 2 CTAs: 'Aktuelle Objekte' + 'Kostenlose Wertermittlung'\n"
+            "3. Aktuelle Angebote — LARGEST SECTION: property listing cards in grid or masonry.\n"
             + _angebote_instruction + "\n"
-            + "4. Leistungen: Verkauf / Vermietung / Immobilienbewertung — clean asymmetric layout, image per service\n"
-            "5. Über uns / Team: agent photo, years experience, number of transactions as animated stat\n"
+            + "4. Leistungen: Verkauf / Vermietung / Immobilienbewertung — asymmetric layout, image per service\n"
+            "5. Über uns / Team: agent photo, years experience, transaction count as animated stat\n"
             "6. Bewertungen: seller + buyer testimonials with star ratings\n"
             "7. Kontakt: phone + email + address + contact form. CTA: 'Jetzt kostenlose Immobilienbewertung anfragen'\n"
             "8. Footer\n\n"
-            "PICSUM SEEDS for property images: 'apartment', 'interior', 'livingroom', 'modernkitchen', 'architecture', 'realestate', 'facade'\n"
+            "PICSUM SEEDS: 'apartment', 'interior', 'livingroom', 'modernkitchen', 'architecture', 'realestate', 'facade'\n"
             + _real_props_block
         ),
         "Zahnarzt": (
@@ -1309,14 +1422,106 @@ Content for generated pages: derive from business name, category, and all scrape
             "## ═══════════════════════════════════════════════════════\n"
             "Clean, light, premium dental practice. Light background MANDATORY — white/off-white ONLY.\n\n"
             "1. Nav: floating pill — practice name + phone + CTA 'Termin vereinbaren'\n"
-            "2. Hero: min-h-[100dvh], light background with large hero image (modern dental equipment or bright clinic interior — NOT a stock dentist holding tools). Calm headline + Google rating badge + CTA 'Termin online buchen'\n"
-            "3. Leistungen: dental services as bento or zigzag — each with a clean dental/medical image. Min 4 services.\n"
-            "4. Behandlungsablauf / Praxis: practice interior photos, modern equipment, welcoming atmosphere. Text about the clinic philosophy.\n"
-            "5. Bewertungen: patient testimonials with star ratings (highly trust-critical for dental)\n"
+            "2. Hero: min-h-[100dvh], light background + large hero image (dental equipment or bright clinic — NOT a stock dentist). Calm headline + Google rating badge + CTA 'Termin online buchen'\n"
+            "3. Leistungen: dental services as bento or zigzag — each with dental image. Min 4 services.\n"
+            "4. Behandlungsablauf / Praxis: practice interior photos, modern equipment, welcoming atmosphere.\n"
+            "5. Bewertungen: patient testimonials with star ratings (trust-critical for dental)\n"
             "6. Team / Über uns: doctor/team photo, credentials, years of experience\n"
             "7. Kontakt: address + phone + online booking CTA + opening hours\n"
             "8. Footer\n\n"
             "PICSUM SEEDS: 'dental', 'clinic', 'medical-equipment', 'white-interior', 'modern-clinic', 'healthcare'\n"
+        ),
+        "Anwalt": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — ANWALT / KANZLEI (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "This is a law firm. Authority, discretion, and expertise are the product.\n\n"
+            "1. Nav: floating pill — firm name + phone + CTA 'Erstberatung anfragen' — dark editorial style\n"
+            "2. Hero: min-h-[100dvh], editorial dark background (use palette). Large authoritative headline about the core practice area. Trust badge: years since founding + Kammer membership. Primary CTA 'Jetzt Erstberatung anfragen'\n"
+            "3. Rechtsgebiete — LARGEST SECTION: each practice area as a distinct card with icon, heading, and 2-sentence scope description. Layout: asymmetric bento or editorial grid (NOT equal 3-col). Min 4 areas from the scraped services.\n"
+            "4. Anwälte / Team: lawyer profiles with placeholder photo, real name (if found), title (Rechtsanwalt/Rechtsanwältin, LL.M., Dr.), and specialization." + _anwalt_team + "\n"
+            "5. Mandatsablauf: 3–4 steps showing how a case engagement works (Erstgespräch → Analyse → Strategie → Vertretung). Clean timeline layout.\n"
+            "6. Bewertungen / Mandate: client testimonials (if found) OR 2-3 anonymized case type descriptions ('Erfolgreich vertreten im Bereich...')\n"
+            "7. Kontakt: office address + phone + email + contact form. Note: 'Alle Anfragen werden vertraulich behandelt.'\n"
+            "8. Footer\n\n"
+            "PICSUM SEEDS: 'law', 'office', 'books', 'architecture', 'marble', 'desk'\n"
+            "TONE: authoritative, understated, specific — 'Seit 2003 vertreten wir Mandanten', never 'Wir sind Ihr Partner'\n"
+        ),
+        "Rechtsanwalt": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — RECHTSANWALT (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "Solo law practice. Personal authority and focused expertise.\n\n"
+            "1. Nav: floating pill — lawyer name + phone + CTA 'Erstberatung'\n"
+            "2. Hero: editorial dark or warm-parchment background. Name + title prominent. Core specialization headline. CTA 'Erstberatung anfragen'\n"
+            "3. Rechtsgebiete — DOMINANT: each practice area as editorial card. Min 3 areas.\n"
+            "4. Über mich: personal profile — background, approach, philosophy. NOT generic. 1 photo placeholder.\n"
+            "5. Mandatsablauf: 3-step process (Kontakt → Analyse → Vertretung)\n"
+            "6. Bewertungen: client testimonials if found, else strong credentials block\n"
+            "7. Kontakt: address + phone + email + form\n"
+            "8. Footer\n\n"
+            "PICSUM SEEDS: 'law', 'office', 'books', 'architecture'\n"
+        ),
+        "Architekt": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — ARCHITEKT (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "This is an architecture practice. The work IS the product — portfolio dominates everything.\n\n"
+            "1. Nav: ultra-minimal floating bar — practice name only (left) + 'Projekt anfragen' (right). No clutter.\n"
+            "2. Hero: full-bleed architectural project photo (dramatic angle, natural light). Minimal text: practice name + one-line philosophy. No crowded CTAs.\n"
+            "3. Projekte / Portfolio — THE DOMINANT SECTION (largest, most prominent): masonry grid or large-format image gallery showing multiple projects. Each entry: project photo, name, type (Neubau/Umbau/Innenarchitektur), year, location. Min 4 projects." + _architekt_projects + "\n"
+            "4. Leistungen: Neubau / Umbau / Innenarchitektur / Städtebau — editorial list, image per service\n"
+            "5. Büro / Über uns: founding story, design philosophy, team. Clean editorial layout.\n"
+            "6. Auszeichnungen / Referenzen: awards, publications, client names if certifications found\n"
+            "7. Kontakt: minimal — email + phone + studio address. Clean form.\n"
+            "8. Footer\n\n"
+            "PICSUM SEEDS: 'architecture', 'building', 'interior', 'modern-house', 'facade', 'concrete'\n"
+            "DESIGN RULE: Whitespace IS the design. No decorative elements. Typography and photography carry everything.\n"
+        ),
+        "Steuerberater": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — STEUERBERATER (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "Modern tax advisory firm. Approachable expertise — boutique feel, not Big 4 stiffness.\n\n"
+            "1. Nav: floating pill — firm name + phone + CTA 'Erstgespräch vereinbaren'\n"
+            "2. Hero: clean editorial background (use palette). Headline about the firm's specialization or target client. Trust signals: Steuerberaterkammer membership + years of experience. CTA 'Kostenloses Erstgespräch'\n"
+            "3. Leistungen — clear and comprehensive: Steuerberatung / Buchhaltung / Jahresabschluss / Lohnbuchhaltung / Unternehmensberatung / Erbschaftsteuer. Layout: clean icon-card grid (NOT boring equal columns — use bento or editorial grouping). Source from scraped services.\n"
+            "4. Für wen — client segments (helps visitors self-qualify): Selbstständige & Freiberufler / GmbH & Kapitalgesellschaften / Privatpersonen / Immobilienbesitzer / Existenzgründer. Short 2-sentence value prop per segment.\n"
+            "5. Berater / Team: advisor profiles — real names if found, credentials (Steuerberater, Diplom-Kaufmann, LL.M.), specializations." + (f"\n   Real team:\n{_team_lines}" if _team_list else "") + "\n"
+            "6. Prozess: onboarding steps — Erstgespräch → Analyse → Mandat → laufende Betreuung. Clean numbered timeline.\n"
+            "7. Kontakt: address + phone + email + contact form. Mention: 'Diskretion und Vertraulichkeit selbstverständlich.'\n"
+            "8. Footer\n\n"
+            "PICSUM SEEDS: 'office', 'desk', 'finance', 'business', 'documents'\n"
+            "TONE: competent and warm — 'Wir kennen Ihre Situation', not 'Optimieren Sie Ihre Steuerlast'\n"
+        ),
+        "Restaurant": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — RESTAURANT (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "Atmosphere and food are the product. Reservations are the conversion goal.\n\n"
+            "1. Nav: restaurant name (with logo area) + 'Jetzt reservieren' CTA (accent color)\n"
+            "2. Hero: full-bleed food/atmosphere photography. Restaurant name + tagline. 'Jetzt reservieren' + 'Speisekarte' CTAs.\n"
+            "3. Speisekarte Highlights — KEY SECTION: organized menu with category headers (Vorspeisen, Hauptgerichte, Desserts, Getränke). Large food photography per category." + _restaurant_menu + "\n"
+            "4. Atmosphäre: interior photos grid, ambiance description, capacity/seating info, any private dining\n"
+            "5. Über uns / Geschichte: restaurant story, head chef name, cuisine concept and inspiration\n"
+            "6. Reservierung: prominent booking section — phone number large, online form or 'Tisch reservieren' CTA\n"
+            "7. Kontakt + Öffnungszeiten: address, opening hours (formatted clearly), Google Maps link\n"
+            "8. Footer\n\n"
+            "PICSUM SEEDS: 'food', 'restaurant', 'dining', 'dish', 'kitchen', 'chef', 'interior'\n"
+            "DESIGN RULE: Every section must have large food or atmosphere photography. Text-heavy sections are death for restaurants.\n"
+        ),
+        "Cafe": (
+            "\n## ═══════════════════════════════════════════════════════\n"
+            "## REQUIRED SECTIONS — CAFÉ (overrides default list)\n"
+            "## ═══════════════════════════════════════════════════════\n"
+            "Cozy, inviting, neighborhood feel. Goal: people want to come in.\n\n"
+            "1. Nav: cafe name + 'Speisekarte' + address or hours hint\n"
+            "2. Hero: full-bleed warm cafe interior or latte art photography. Inviting headline.\n"
+            "3. Speisekarte: coffee menu + food menu. Grid with photos." + _restaurant_menu + "\n"
+            "4. Atmosphäre: interior photos, cozy details, seating areas\n"
+            "5. Über uns: cafe story, who runs it, why they love coffee\n"
+            "6. Öffnungszeiten + Standort: hours table + address + map link\n"
+            "7. Footer\n"
         ),
     }
     category_section_override = _CATEGORY_SECTION_OVERRIDES.get(lead.get("category", ""), "")
@@ -1379,6 +1584,7 @@ Website: {lead.get('website', '')}
 Google Rating: {lead.get('google_rating', '')} ({lead.get('google_reviews', '')} Bewertungen)
 {f"Founded: {structured.get('founding_year')}" if structured.get('founding_year') else ""}
 {("Certifications / Memberships: " + " | ".join(structured.get('certifications', []))) if structured.get('certifications') else ""}
+{team_data_block}
 
 ## About This Business
 {about_text or content.get('description', '') or 'No about text found.'}
@@ -1401,6 +1607,9 @@ Main page text:
 {image_section}
 
 {picsum_block}
+{price_data_block}
+{projects_data_block}
+{menu_data_block}
 
 {weakness_section}
 
