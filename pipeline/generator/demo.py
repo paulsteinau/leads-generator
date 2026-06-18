@@ -1930,7 +1930,7 @@ def generate_demo(lead: dict, conn) -> str | None:
     app_jsx = claude_p(
         prompt=prompt,
         system=design_system,
-        model="claude-fable-5",
+        model="claude-opus-4-8",
         max_tokens=40000,
         conn=conn,
         lead_id=lead_id,
