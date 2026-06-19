@@ -965,7 +965,14 @@ def _post_process_jsx(jsx: str, design_brief: str = "") -> tuple[str, list[str]]
         jsx = re.sub(r'\b(\d+\.)(?!\d)', lambda m: m.group(1) + '0', jsx)
         warnings.append(f"AUTO-FIXED: {len(trailing_dec)} trailing decimals (0. → 0.0) that would break esbuild")
 
-    # 7. Template placeholder comments inside JSX that break the build:
+    # 7. framer-motion → motion/react (template ships `motion` package, not `framer-motion`)
+    fm_count = jsx.count("from 'framer-motion'") + jsx.count('from "framer-motion"')
+    if fm_count:
+        jsx = jsx.replace("from 'framer-motion'", "from 'motion/react'")
+        jsx = jsx.replace('from "framer-motion"', 'from "motion/react"')
+        warnings.append(f"AUTO-FIXED: {fm_count} framer-motion → motion/react import")
+
+    # 9. Template placeholder comments inside JSX that break the build:
     #    {/* image or content block */} etc. left verbatim from code snippets
     placeholder_count = len(re.findall(r'\{/\*\s*(?:image|content block|item content|card|heading|scrolling content)[^*]*\*/\}', jsx, re.IGNORECASE))
     if placeholder_count:
@@ -2206,7 +2213,7 @@ def _deploy_via_vercel_api(demo_dir: Path, slug: str, conn, lead_id: int) -> str
                         err_resp = httpx.get(
                             f"https://api.vercel.com/v3/deployments/{deploy_id}/events",
                             headers=headers,
-                            params={"types": "error,stderr", "limit": "20"},
+                            params={"types": "stdout,stderr,error", "limit": "100"},
                             timeout=30,
                         )
                         events = err_resp.json()
