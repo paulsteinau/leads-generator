@@ -2367,7 +2367,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         prompt=prompt,
         system=design_system,
         model="claude-sonnet-4-6",
-        max_tokens=32000,
+        max_tokens=48000,
         conn=conn,
         lead_id=lead_id,
         stage="demo_gen",

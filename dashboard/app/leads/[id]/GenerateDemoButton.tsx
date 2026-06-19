@@ -14,7 +14,7 @@ const SUB_STAGE_CONFIG: Record<string, { pct: number; label: string }> = {
   vercel_deploy:     { pct: 93, label: "Demo wird deployed..." },
 };
 
-const JSX_MAX_TOKENS = 32000;
+const JSX_MAX_TOKENS = 48000;
 
 interface Props {
   leadId: number;
