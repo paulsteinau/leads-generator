@@ -979,6 +979,59 @@ def _post_process_jsx(jsx: str, design_brief: str = "") -> tuple[str, list[str]]
         jsx = re.sub(r'\{/\*\s*(?:image|content block|item content|card|heading|scrolling content)[^*]*\*/\}', '{null}', jsx, flags=re.IGNORECASE)
         warnings.append(f"AUTO-FIXED: {placeholder_count} empty placeholder comments replaced with {{null}}")
 
+    # --- Build-safety fixes: deterministic, don't alter rendered output ---
+
+    # 10. Strip imports from packages not installed in the react-template
+    _ALLOWED_PKGS = {'react', 'react-dom', 'react-dom/client', 'react-router-dom',
+                     'gsap', 'motion', '@phosphor-icons/react'}
+    def _pkg_allowed(pkg: str) -> bool:
+        return pkg in _ALLOWED_PKGS or pkg.startswith(('gsap/', 'motion/', '@phosphor-icons/'))
+
+    found_pkgs = set(re.findall(r"""from\s+['"]([^'"]+)['"]""", jsx))
+    bad_pkgs = [p for p in found_pkgs if not _pkg_allowed(p)]
+    if bad_pkgs:
+        for pkg in bad_pkgs:
+            jsx = re.sub(
+                rf"""^import\s+[^\n]*from\s+['\"{re.escape(pkg)}['\"][^\n]*\n?""",
+                '', jsx, flags=re.MULTILINE
+            )
+        warnings.append(f"AUTO-FIXED: stripped {len(bad_pkgs)} uninstalled import(s): {', '.join(sorted(bad_pkgs)[:4])}")
+
+    # 11. Convert top-level require() → ESM import; dynamic require() → undefined
+    def _req_to_import(m: re.Match) -> str:
+        return f"import {m.group(1).strip()} from '{m.group(2)}'"
+    req_top = len(re.findall(r'^(?:const|let|var)\s+\S+\s*=\s*require\(', jsx, re.MULTILINE))
+    if req_top:
+        jsx = re.sub(
+            r'^(?:const|let|var)\s+(\{[^}]+\}|\w+)\s*=\s*require\([\'"]([^\'"]+)[\'"]\)\s*;?',
+            _req_to_import, jsx, flags=re.MULTILINE
+        )
+        warnings.append(f"AUTO-FIXED: {req_top} top-level require() → ESM import")
+    req_dyn = len(re.findall(r"""require\(['"][^'"]+['"]\)""", jsx))
+    if req_dyn:
+        jsx = re.sub(r"""require\(['"][^'"]+['"]\)""", 'undefined', jsx)
+        warnings.append(f"AUTO-FIXED: {req_dyn} dynamic require() → undefined")
+
+    # 12. Strip TypeScript interface/type declarations (break esbuild in .jsx files)
+    ts_iface = len(re.findall(r'^\s*(?:export\s+)?interface\s+\w+', jsx, re.MULTILINE))
+    ts_type  = len(re.findall(r'^\s*(?:export\s+)?type\s+\w+\s*=', jsx, re.MULTILINE))
+    if ts_iface + ts_type:
+        jsx = re.sub(r'\binterface\s+\w+[^{]*\{[^{}]*\}', '', jsx, flags=re.DOTALL)
+        jsx = re.sub(r'\btype\s+\w+\s*=[^\n;]+;?', '', jsx)
+        warnings.append(f"AUTO-FIXED: {ts_iface + ts_type} TypeScript interface/type declaration(s) removed")
+
+    # 13. Strip React.FC<> type annotations from arrow functions
+    ts_fc = len(re.findall(r':\s*React\.(?:FC|ReactNode|CSSProperties)(?:<[^>]*>)?(?=\s*=)', jsx))
+    if ts_fc:
+        jsx = re.sub(r':\s*React\.(?:FC|ReactNode|CSSProperties)(?:<[^>]*>)?(?=\s*=)', '', jsx)
+        warnings.append(f"AUTO-FIXED: {ts_fc} React.FC type annotation(s) stripped")
+
+    # 14. Strip stray CSS imports (only index.css ships in the demo bundle)
+    css_imports = len(re.findall(r"""^import\s+['"][^'"]*\.css['"]\s*;?\n?""", jsx, re.MULTILINE))
+    if css_imports:
+        jsx = re.sub(r"""^import\s+['"][^'"]*\.css['"]\s*;?\n?""", '', jsx, flags=re.MULTILINE)
+        warnings.append(f"AUTO-FIXED: {css_imports} stray CSS import(s) removed")
+
     # --- Design brief compliance checks (warnings only) ---
     if design_brief:
         # Extract hex colors from brief
