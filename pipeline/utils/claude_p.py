@@ -1,5 +1,6 @@
 # pipeline/utils/claude_p.py
 import os
+from collections.abc import Callable
 import anthropic
 
 _client: anthropic.Anthropic | None = None
@@ -46,6 +47,7 @@ def claude_p(
     images: list[tuple[str, str]] | None = None,
     thinking: dict | None = None,
     generation_num: int = 1,
+    on_progress: Callable[[int], None] | None = None,
 ) -> str:
     """Call Claude and return the text response. Logs cost to DB if conn provided.
     Pass image_b64 for a single image, or images=[(b64, media_type), ...] for multiple.
@@ -81,19 +83,34 @@ def claude_p(
     if max_tokens > 8192:
         kwargs["extra_headers"] = {"anthropic-beta": "output-128k-2025-02-19"}
 
-    resp = client.messages.create(**kwargs)
-
-    # Find the text block — thinking blocks come first when adaptive thinking is active
-    text = next(
-        (block.text for block in resp.content if block.type == "text"),
-        resp.content[0].text,
-    )
-
-    if conn and lead_id:
+    if on_progress is not None:
+        # Streaming mode: call on_progress(char_count) every ~2000 chars for real-time visibility
+        text = ""
+        prev_report = 0
+        with client.messages.stream(**kwargs) as stream:
+            for chunk in stream.text_stream:
+                text += chunk
+                if len(text) - prev_report >= 2000:
+                    on_progress(len(text))
+                    prev_report = len(text)
+            final = stream.get_final_message()
+        in_tok      = final.usage.input_tokens
+        out_tok     = final.usage.output_tokens
+        cache_read  = getattr(final.usage, "cache_read_input_tokens", 0) or 0
+        cache_write = getattr(final.usage, "cache_creation_input_tokens", 0) or 0
+    else:
+        resp = client.messages.create(**kwargs)
+        # Find the text block — thinking blocks come first when adaptive thinking is active
+        text = next(
+            (block.text for block in resp.content if block.type == "text"),
+            resp.content[0].text,
+        )
         in_tok      = resp.usage.input_tokens
         out_tok     = resp.usage.output_tokens
         cache_read  = getattr(resp.usage, "cache_read_input_tokens", 0) or 0
         cache_write = getattr(resp.usage, "cache_creation_input_tokens", 0) or 0
+
+    if conn and lead_id:
 
         in_price  = INPUT_COST.get(model, 3.00 / 1_000_000)   # default: Sonnet, not Haiku
         out_price = OUTPUT_COST.get(model, 15.00 / 1_000_000)

@@ -2337,9 +2337,20 @@ def generate_demo(lead: dict, conn) -> str | None:
         (b64, "image/jpeg") for b64 in ref_screenshots + lead_screenshots if b64
     ]
 
-    # Stage 8: Sonnet — generate App.jsx
+    # Stage 8: Sonnet — generate App.jsx (streamed for real-time progress visibility)
     _set_sub_stage(conn, lead_id, "generating_jsx")
     print(f"[demo] Generating App.jsx with Sonnet for lead {lead_id} ({len(images)} images)...")
+
+    import time as _time
+    _jsx_progress_ts = [_time.time()]
+
+    def _jsx_progress(char_count: int) -> None:
+        now = _time.time()
+        if now - _jsx_progress_ts[0] >= 3.0:
+            approx_tokens = char_count // 4
+            _set_sub_stage(conn, lead_id, f"generating_jsx:{approx_tokens}")
+            _jsx_progress_ts[0] = now
+
     prompt = _build_codegen_prompt(
         lead=lead,
         content=content,
@@ -2362,6 +2373,7 @@ def generate_demo(lead: dict, conn) -> str | None:
         stage="demo_gen",
         images=images if images else None,
         generation_num=generation_num,
+        on_progress=_jsx_progress,
     )
 
     # Strip accidental markdown fences

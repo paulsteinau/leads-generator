@@ -14,8 +14,7 @@ const SUB_STAGE_CONFIG: Record<string, { pct: number; label: string }> = {
   vercel_deploy:     { pct: 93, label: "Demo wird deployed..." },
 };
 
-// generating_jsx takes 3-6 min; animate pct from 30 → 70 over 360s, then crawl to 74 max
-const JSX_ANIM_DURATION_S = 360;
+const JSX_MAX_TOKENS = 32000;
 
 interface Props {
   leadId: number;
@@ -34,21 +33,13 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
   const [error, setError] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(initialStage === "generating_demo");
   const seenGenerating = useRef(false);
-  // for animating the generating_jsx progress
-  const [jsxStartTime, setJsxStartTime] = useState<number | null>(null);
-  const [animPct, setAnimPct] = useState(30);
-
-  // animate bar while stuck in generating_jsx
-  useEffect(() => {
-    if (subStage !== "generating_jsx") { setJsxStartTime(null); return; }
-    if (!jsxStartTime) { setJsxStartTime(Date.now()); return; }
-    const id = setInterval(() => {
-      const elapsed = (Date.now() - jsxStartTime) / 1000;
-      const progress = Math.min(elapsed / JSX_ANIM_DURATION_S, 1);
-      setAnimPct(30 + Math.round(progress * 42)); // 30 → 72
-    }, 1000);
-    return () => clearInterval(id);
-  }, [subStage, jsxStartTime]);
+  // Parse token progress from sub_stage like "generating_jsx:14200"
+  const isGeneratingJsx = subStage?.startsWith("generating_jsx") ?? false;
+  const jsxTokens = (() => {
+    if (!subStage?.includes(":")) return null;
+    const n = parseInt(subStage.split(":")[1]);
+    return isNaN(n) ? null : n;
+  })();
 
   const poll = useCallback(async () => {
     const status = await getDemoStatus(leadId);
@@ -124,9 +115,18 @@ export default function GenerateDemoButton({ leadId, initialStage, initialDemoUr
   }
 
   if (isPolling || stage === "generating_demo") {
-    const cfg = subStage ? SUB_STAGE_CONFIG[subStage] : null;
-    const pct = subStage === "generating_jsx" ? animPct : (cfg?.pct ?? 2);
-    const label = cfg?.label ?? "Demo wird vorbereitet...";
+    const baseKey = subStage?.split(":")[0] ?? "";
+    const cfg = SUB_STAGE_CONFIG[baseKey] ?? null;
+    const pct = isGeneratingJsx
+      ? (jsxTokens !== null
+          ? Math.round(30 + (jsxTokens / JSX_MAX_TOKENS) * 42)
+          : 30)
+      : (cfg?.pct ?? 2);
+    const label = isGeneratingJsx
+      ? (jsxTokens !== null
+          ? `KI generiert Demo-Code... ${(jsxTokens / 1000).toFixed(1)}k / ~${(JSX_MAX_TOKENS / 1000).toFixed(0)}k Tokens`
+          : "KI generiert Demo-Code...")
+      : (cfg?.label ?? "Demo wird vorbereitet...");
 
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
