@@ -2352,15 +2352,18 @@ def generate_demo(lead: dict, conn) -> str | None:
         picked_animations=picked_animations,
     )
 
+    # Cap images to 4 total (2 ref + 2 lead) — more causes massive input token cost and slow generation
+    images_capped = images[:4] if images else None
+
     app_jsx = claude_p(
         prompt=prompt,
         system=design_system,
         model="claude-sonnet-4-6",
-        max_tokens=40000,
+        max_tokens=20000,
         conn=conn,
         lead_id=lead_id,
         stage="demo_gen",
-        images=images if images else None,
+        images=images_capped,
         generation_num=generation_num,
     )
 
@@ -2373,10 +2376,10 @@ def generate_demo(lead: dict, conn) -> str | None:
     # Post-process: auto-fix banned patterns + brief compliance check
     app_jsx, _post_warnings = _post_process_jsx(app_jsx, design_brief)
 
-    # Warn if output was exactly max_tokens — likely truncated
+    # Warn if output was truncated at the token cap
     approx_out_tokens = len(app_jsx) // 4
-    if approx_out_tokens >= 39000:
-        print(f"[demo] WARNING: Fable output ~{approx_out_tokens} tokens — may be truncated even at 40k limit")
+    if approx_out_tokens >= 19000:
+        print(f"[demo] WARNING: output ~{approx_out_tokens} tokens — may be truncated at 20k limit")
 
     # Stage 8.5: Haiku — JSX pre-flight validation (syntax)
     _set_sub_stage(conn, lead_id, "jsx_validation")

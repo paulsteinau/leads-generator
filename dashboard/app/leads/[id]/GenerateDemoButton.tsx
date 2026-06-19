@@ -14,8 +14,8 @@ const SUB_STAGE_CONFIG: Record<string, { pct: number; label: string }> = {
   vercel_deploy:     { pct: 93, label: "Demo wird deployed..." },
 };
 
-// generating_jsx is slow (~5 min); animate pct from 30 → 72 over 300s
-const JSX_ANIM_DURATION_S = 300;
+// generating_jsx is slow (~3-4 min with 20k cap); animate pct from 30 → 72 over 240s
+const JSX_ANIM_DURATION_S = 240;
 
 interface Props {
   leadId: number;
